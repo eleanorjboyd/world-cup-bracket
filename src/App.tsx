@@ -3,6 +3,7 @@ import {
   MATCHES,
   ROUNDS,
   TEAMS,
+  matchesInBracketOrder,
   type Match,
   type RoundId,
   type Slot,
@@ -45,7 +46,7 @@ export default function App() {
       SF: [],
       F: [],
     }
-    for (const m of MATCHES) map[m.round].push(m)
+    for (const r of ROUNDS) map[r.id] = matchesInBracketOrder(r.id)
     return map
   }, [])
 
@@ -95,16 +96,13 @@ export default function App() {
 
       <div className="bracket">
         {ROUNDS.map((round) => (
-          <section className="round" key={round.id}>
+          <section className={`round round-${round.id}`} key={round.id}>
             <h2 className="round-title">{round.label}</h2>
             <div className="round-matches">
               {matchesByRound[round.id].map((match) => (
-                <MatchCard
-                  key={match.id}
-                  match={match}
-                  picks={picks}
-                  onPick={pick}
-                />
+                <div className="cell" key={match.id}>
+                  <MatchCard match={match} picks={picks} onPick={pick} />
+                </div>
               ))}
             </div>
           </section>

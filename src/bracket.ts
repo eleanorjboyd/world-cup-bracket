@@ -117,3 +117,25 @@ export const MATCHES: Match[] = [
 export const MATCHES_BY_ID: Record<number, Match> = Object.fromEntries(
   MATCHES.map((m) => [m.id, m]),
 )
+
+// The final is the highest-numbered match.
+export const FINAL_ID = Math.max(...MATCHES.map((m) => m.id))
+
+// Lay each round out top-to-bottom in true bracket order so that the two
+// matches feeding a later match sit directly above/below it. We do a DFS from
+// the final, building a path string ("0" = upper feeder, "1" = lower feeder);
+// sorting a round's matches by that string yields the correct vertical order.
+const ORDER_KEY: Record<number, string> = {}
+function buildOrder(id: number, path: string) {
+  ORDER_KEY[id] = path
+  const m = MATCHES_BY_ID[id]
+  if (m.a.kind === 'winner') buildOrder(m.a.matchId, path + '0')
+  if (m.b.kind === 'winner') buildOrder(m.b.matchId, path + '1')
+}
+buildOrder(FINAL_ID, '')
+
+export function matchesInBracketOrder(round: RoundId): Match[] {
+  return MATCHES.filter((m) => m.round === round).sort((a, b) =>
+    ORDER_KEY[a.id] < ORDER_KEY[b.id] ? -1 : 1,
+  )
+}
