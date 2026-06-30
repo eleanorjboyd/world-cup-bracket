@@ -8,6 +8,7 @@ import {
 } from 'react'
 import {
   MATCHES,
+  ROUNDS,
   ROUND_LABEL,
   TEAMS,
   bracketSide,
@@ -60,8 +61,17 @@ const DECOR = [
 const LEFT_ROUNDS: RoundId[] = ['R32', 'R16', 'QF', 'SF']
 const RIGHT_ROUNDS: RoundId[] = ['SF', 'QF', 'R16', 'R32']
 
+const SHORT_LABEL: Record<RoundId, string> = {
+  R32: 'R32',
+  R16: 'R16',
+  QF: 'QF',
+  SF: 'SF',
+  F: 'Final',
+}
+
 export default function App() {
   const [picks, setPicks] = useState<Picks>(loadPicks)
+  const isMobile = useIsMobile()
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(picks))
@@ -77,7 +87,7 @@ export default function App() {
   const pickedCount = Object.keys(picks).length
 
   return (
-    <div className="app">
+    <div className={`app ${isMobile ? 'is-mobile' : 'is-desktop'}`}>
       <div className="decor" aria-hidden>
         {DECOR.map((d, i) => (
           <span key={i} style={{ left: d.left, top: d.top, animationDelay: d.d }}>
@@ -102,39 +112,70 @@ export default function App() {
         </div>
       </header>
 
-      <FitStage>
-        <div className="wall">
-          {LEFT_ROUNDS.map((r) => (
-            <RoundColumn key={`L-${r}`} round={r} side="left" picks={picks} onPick={pick} />
-          ))}
-
-          <section className="col final" style={{ width: COL_WIDTH.F }}>
-            <h2 className="col-title">Final</h2>
-            <div className="col-body" style={{ justifyContent: 'center' }}>
-              {matchesInBracketOrder('F').map((m) => (
-                <div className="cell" key={m.id}>
-                  <MatchCard match={m} picks={picks} onPick={pick} />
-                </div>
-              ))}
-            </div>
-            <div className="champ">
-              {championId ? (
-                <>
-                  {complete ? 'Champion' : 'Projected champion'}
-                  <span className="big">{TEAMS[championId].name}</span>
-                </>
-              ) : (
-                '\u00a0'
-              )}
-            </div>
-          </section>
-
-          {RIGHT_ROUNDS.map((r) => (
-            <RoundColumn key={`R-${r}`} round={r} side="right" picks={picks} onPick={pick} />
-          ))}
-        </div>
-      </FitStage>
+      {isMobile ? (
+        <StepperView picks={picks} onPick={pick} championId={championId} complete={complete} />
+      ) : (
+        <WallView picks={picks} onPick={pick} championId={championId} complete={complete} />
+      )}
     </div>
+  )
+}
+
+function useIsMobile() {
+  const query = '(max-width: 760px)'
+  const [isMobile, setIsMobile] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia(query).matches,
+  )
+  useEffect(() => {
+    const mq = window.matchMedia(query)
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches)
+    mq.addEventListener('change', handler)
+    return () => mq.removeEventListener('change', handler)
+  }, [])
+  return isMobile
+}
+
+interface ViewProps {
+  picks: Picks
+  onPick: (matchId: number, teamId: string | undefined) => void
+  championId: string | undefined
+  complete: boolean
+}
+
+function WallView({ picks, onPick, championId, complete }: ViewProps) {
+  return (
+    <FitStage>
+      <div className="wall">
+        {LEFT_ROUNDS.map((r) => (
+          <RoundColumn key={`L-${r}`} round={r} side="left" picks={picks} onPick={onPick} />
+        ))}
+
+        <section className="col final" style={{ width: COL_WIDTH.F }}>
+          <h2 className="col-title">Final</h2>
+          <div className="col-body" style={{ justifyContent: 'center' }}>
+            {matchesInBracketOrder('F').map((m) => (
+              <div className="cell" key={m.id}>
+                <MatchCard match={m} picks={picks} onPick={onPick} />
+              </div>
+            ))}
+          </div>
+          <div className="champ">
+            {championId ? (
+              <>
+                {complete ? 'Champion' : 'Projected champion'}
+                <span className="big">{TEAMS[championId].name}</span>
+              </>
+            ) : (
+              '\u00a0'
+            )}
+          </div>
+        </section>
+
+        {RIGHT_ROUNDS.map((r) => (
+          <RoundColumn key={`R-${r}`} round={r} side="right" picks={picks} onPick={onPick} />
+        ))}
+      </div>
+    </FitStage>
   )
 }
 
@@ -263,6 +304,158 @@ function TeamRow({
         </>
       ) : (
         <span className="name placeholder">{emptyLabel}</span>
+      )}
+    </button>
+  )
+}
+
+// ---------- Mobile: focus stepper (one round at a time) ----------
+
+function firstIncompleteRound(picks: Picks): number {
+  const ids = ROUNDS.map((r) => r.id)
+  for (let i = 0; i < ids.length; i++) {
+    if (matchesInBracketOrder(ids[i]).some((m) => picks[m.id] == null)) return i
+  }
+  return ids.length - 1
+}
+
+function StepperView({ picks, onPick, championId, complete }: ViewProps) {
+  const roundIds = ROUNDS.map((r) => r.id)
+  const [step, setStep] = useState(() => firstIncompleteRound(picks))
+  const roundId = roundIds[step]
+  const matches = matchesInBracketOrder(roundId)
+  const done = matches.filter((m) => picks[m.id] != null).length
+
+  return (
+    <div className="stepper">
+      <div className="step-head">
+        <div className="step-round">{ROUND_LABEL[roundId]}</div>
+        <div className="step-desc">
+          {roundId === 'F'
+            ? 'Pick your champion'
+            : `Tap the winners — ${done}/${matches.length}`}
+        </div>
+      </div>
+
+      <div className="step-tabs">
+        {roundIds.map((r, i) => {
+          const rc = matchesInBracketOrder(r).every((m) => picks[m.id] != null)
+          return (
+            <button
+              key={r}
+              className={`step-tab ${i === step ? 'active' : ''} ${rc ? 'done' : ''}`}
+              onClick={() => setStep(i)}
+              type="button"
+            >
+              {SHORT_LABEL[r]}
+              {rc ? ' ✓' : ''}
+            </button>
+          )
+        })}
+      </div>
+
+      <div className="step-body">
+        {roundId === 'F' && championId ? (
+          <div className="champ-card">
+            <div className="trophy">🏆</div>
+            <div className="cflag">{TEAMS[championId].flag}</div>
+            <div className="cname">{TEAMS[championId].name}</div>
+            <div className="ctag">
+              {complete ? 'your champion' : 'projected champion'}
+            </div>
+          </div>
+        ) : (
+          matches.map((m) => (
+            <StepMatch key={m.id} match={m} picks={picks} onPick={onPick} />
+          ))
+        )}
+      </div>
+
+      <div className="step-nav">
+        <button
+          className="snav"
+          disabled={step === 0}
+          onClick={() => setStep((s) => Math.max(0, s - 1))}
+          type="button"
+        >
+          ← Back
+        </button>
+        <button
+          className="snav primary"
+          disabled={step === roundIds.length - 1}
+          onClick={() => setStep((s) => Math.min(roundIds.length - 1, s + 1))}
+          type="button"
+        >
+          Next →
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function StepMatch({
+  match,
+  picks,
+  onPick,
+}: {
+  match: Match
+  picks: Picks
+  onPick: (matchId: number, teamId: string | undefined) => void
+}) {
+  const { a, b } = teamsForMatch(match, picks)
+  const winnerId = picks[match.id]
+  return (
+    <div className="step-match">
+      <div className="sm-meta">
+        <span>Match {match.id}</span>
+        <span>{match.date}</span>
+      </div>
+      <div className="sm-vs">
+        <StepOption
+          teamId={a}
+          placeholder={slotLabel(match.a)}
+          selected={a !== undefined && winnerId === a}
+          onSelect={() => onPick(match.id, a)}
+        />
+        <span className="sm-mid">vs</span>
+        <StepOption
+          teamId={b}
+          placeholder={slotLabel(match.b)}
+          selected={b !== undefined && winnerId === b}
+          onSelect={() => onPick(match.id, b)}
+        />
+      </div>
+      {match.venue && <div className="sm-venue">📍 {match.venue}</div>}
+    </div>
+  )
+}
+
+function StepOption({
+  teamId,
+  placeholder,
+  selected,
+  onSelect,
+}: {
+  teamId: string | undefined
+  placeholder: string
+  selected: boolean
+  onSelect: () => void
+}) {
+  const team = teamId ? TEAMS[teamId] : undefined
+  return (
+    <button
+      className={`sm-opt ${selected ? 'sel' : ''}`}
+      disabled={!team}
+      onClick={onSelect}
+      type="button"
+    >
+      {team ? (
+        <>
+          <span className="sm-flag">{team.flag}</span>
+          <span className="sm-name">{team.name}</span>
+        </>
+      ) : (
+        <span className="sm-name ph">{placeholder}</span>
       )}
     </button>
   )
