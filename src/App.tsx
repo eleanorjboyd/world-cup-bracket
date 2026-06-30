@@ -30,10 +30,11 @@ import {
   teamsForMatch,
   type Picks,
 } from './picks'
-import { buildShareUrl, picksFromHash } from './share'
+import { APP_URL, buildShareUrl, picksFromHash } from './share'
 import { fetchLive, flagFor, type LiveMatch } from './live'
 
 const STORAGE_KEY = 'wc2026-bracket-picks-v1'
+const HOME_DISMISSED_KEY = 'wc2026-home-dismissed-v1'
 
 function loadPicks(): Picks {
   const shared = picksFromHash()
@@ -84,6 +85,22 @@ export default function App() {
   const [results, setResults] = useState<Record<number, MatchResult>>(RESULTS)
   const [shareOpen, setShareOpen] = useState(false)
   const [scheduleOpen, setScheduleOpen] = useState(false)
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [showHome, setShowHome] = useState(() => {
+    // Skip the landing screen if the user already has picks, arrived via a
+    // shared link, or dismissed the home page on a previous visit.
+    if (typeof window === 'undefined') return true
+    if (picksFromHash()) return false
+    try {
+      if (localStorage.getItem(HOME_DISMISSED_KEY) === '1') return false
+      const raw = localStorage.getItem(STORAGE_KEY)
+      const stored = raw ? (JSON.parse(raw) as Picks) : {}
+      if (Object.keys(stored).length > 0) return false
+    } catch {
+      /* ignore */
+    }
+    return true
+  })
   const isMobile = useIsMobile()
   const live = useLive()
   const liveGames = live.filter((m) => m.state === 'in')
@@ -116,10 +133,28 @@ export default function App() {
     [results],
   )
 
+  const enterBracket = useCallback(() => {
+    setShowHome(false)
+    try {
+      localStorage.setItem(HOME_DISMISSED_KEY, '1')
+    } catch {
+      /* ignore */
+    }
+  }, [])
+
   const championId = champion(picks)
   const complete = isComplete(picks)
   const pickedCount = Object.keys(picks).length
   const lockedCount = Object.keys(results).length
+
+  if (showHome) {
+    return (
+      <>
+        <HomeView onStart={enterBracket} />
+        {inviteOpen && <InviteModal onClose={() => setInviteOpen(false)} />}
+      </>
+    )
+  }
 
   return (
     <div className={`app ${isMobile ? 'is-mobile' : 'is-desktop'}`}>
@@ -143,6 +178,14 @@ export default function App() {
           >
             {liveGames.length > 0 && <span className="live-dot" />}
             📅 Schedule
+          </button>
+          <button
+            className="invite-btn"
+            onClick={() => setInviteOpen(true)}
+            type="button"
+            title="Show a QR code others can scan to fill out their own bracket"
+          >
+            📣 Invite
           </button>
           <button
             className={`share-btn ${complete ? 'ready' : ''}`}
@@ -178,6 +221,8 @@ export default function App() {
           onClose={() => setShareOpen(false)}
         />
       )}
+
+      {inviteOpen && <InviteModal onClose={() => setInviteOpen(false)} />}
 
       {isMobile ? (
         <StepperView
@@ -880,3 +925,130 @@ function ScheduleRow({ m }: { m: LiveMatch }) {
   )
 }
 
+// ---------- Home (landing) view ----------
+
+function useBlankBracketQr(size = 320): string {
+  const [qr, setQr] = useState('')
+  useEffect(() => {
+    let active = true
+    QRCode.toDataURL(APP_URL, {
+      width: size,
+      margin: 1,
+      color: { dark: '#0a3315ff', light: '#fffef6ff' },
+    })
+      .then((url) => {
+        if (active) setQr(url)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [size])
+  return qr
+}
+
+function HomeView({ onStart }: { onStart: () => void }) {
+  const qr = useBlankBracketQr(340)
+  return (
+    <div className="home">
+      <div className="decor" aria-hidden>
+        {DECOR.map((d, i) => (
+          <span key={i} style={{ left: d.left, top: d.top, animationDelay: d.d }}>
+            {d.e}
+          </span>
+        ))}
+      </div>
+
+      <div className="home-card">
+        <div className="home-kicker">⚽ Welcome to ⚽</div>
+        <h1 className="home-title">World Cup 2026 Pick&apos;em</h1>
+        <p className="home-sub">
+          Fill out your own knockout bracket — pick a winner in every match,
+          all the way to the champion.
+        </p>
+
+        <div className="home-qr-wrap">
+          {qr ? (
+            <img
+              className="home-qr"
+              src={qr}
+              alt="QR code linking to a blank bracket"
+              width={260}
+              height={260}
+            />
+          ) : (
+            <div className="home-qr placeholder" aria-hidden />
+          )}
+          <div className="home-qr-caption">
+            <strong>📱 Scan to play on your phone</strong>
+            <span>Anyone who scans gets their own blank bracket to fill out.</span>
+          </div>
+        </div>
+
+        <button className="home-start" onClick={onStart} type="button">
+          Start my bracket →
+        </button>
+      </div>
+    </div>
+  )
+}
+
+// ---------- Invite modal (shows the blank-bracket QR anytime) ----------
+
+function InviteModal({ onClose }: { onClose: () => void }) {
+  const qr = useBlankBracketQr(360)
+  const [linkCopied, setLinkCopied] = useState(false)
+
+  const copyLink = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(APP_URL)
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 1800)
+    } catch {
+      /* clipboard may be blocked; ignore */
+    }
+  }, [])
+
+  return (
+    <div
+      className="overlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div className="share-panel invite-panel">
+        <div className="share-panel-top">
+          <h2>Invite others to play 📣</h2>
+          <button className="close" onClick={onClose} type="button">
+            ✕
+          </button>
+        </div>
+
+        <div className="invite-body">
+          {qr ? (
+            <img
+              className="invite-qr"
+              src={qr}
+              alt="QR code linking to a blank bracket"
+              width={280}
+              height={280}
+            />
+          ) : (
+            <div className="invite-qr placeholder" aria-hidden />
+          )}
+          <p className="invite-help">
+            Anyone who scans this gets their own blank bracket to fill out —
+            their picks stay on their phone.
+          </p>
+          <code className="invite-url">{APP_URL}</code>
+        </div>
+
+        <div className="share-actions">
+          <button className="snav primary" onClick={copyLink} type="button">
+            {linkCopied ? 'Link copied! ✓' : '🔗 Copy invite link'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
