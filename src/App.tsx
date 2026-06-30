@@ -183,16 +183,21 @@ export default function App() {
             className="invite-btn"
             onClick={() => setInviteOpen(true)}
             type="button"
-            title="Show a QR code others can scan to fill out their own bracket"
+            title="Get a link or QR so friends can make their own bracket"
           >
-            📣 Invite
+            📣 Make your own
           </button>
           <button
             className={`share-btn ${complete ? 'ready' : ''}`}
             onClick={() => setShareOpen(true)}
-            disabled={pickedCount === 0}
+            disabled={!complete}
+            title={
+              complete
+                ? 'Share your completed bracket'
+                : 'Finish every pick to share your bracket'
+            }
           >
-            {complete ? '🎉 Share' : 'Share'}
+            {complete ? '🎉 Share your bracket' : 'Share your bracket'}
           </button>
           <button
             className="reset"
@@ -723,7 +728,7 @@ function ShareModal({
     >
       <div className="share-panel">
         <div className="share-panel-top">
-          <h2>{complete ? 'Your bracket is set! 🏆' : 'Share your bracket'}</h2>
+          <h2>Share your bracket 🏆</h2>
           <button className="close" onClick={onClose} type="button">
             ✕
           </button>
@@ -1018,7 +1023,7 @@ function InviteModal({ onClose }: { onClose: () => void }) {
     >
       <div className="share-panel invite-panel">
         <div className="share-panel-top">
-          <h2>Invite others to play 📣</h2>
+          <h2>Make your own bracket 🆕</h2>
           <button className="close" onClick={onClose} type="button">
             ✕
           </button>
@@ -1037,15 +1042,15 @@ function InviteModal({ onClose }: { onClose: () => void }) {
             <div className="invite-qr placeholder" aria-hidden />
           )}
           <p className="invite-help">
-            Anyone who scans this gets their own blank bracket to fill out —
-            their picks stay on their phone.
+            Send this to friends so everyone makes their own bracket. Each person
+            gets a fresh, blank bracket and their picks stay on their phone.
           </p>
           <code className="invite-url">{APP_URL}</code>
         </div>
 
         <div className="share-actions">
           <button className="snav primary" onClick={copyLink} type="button">
-            {linkCopied ? 'Link copied! ✓' : '🔗 Copy invite link'}
+            {linkCopied ? 'Link copied! ✓' : '🔗 Copy link'}
           </button>
         </div>
       </div>
