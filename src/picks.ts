@@ -1,4 +1,4 @@
-import { MATCHES, MATCHES_BY_ID, type Match, type Slot } from './bracket'
+import { MATCHES, MATCHES_BY_ID, RESULTS, type Match, type Slot } from './bracket'
 
 // picks: matchId -> winning teamId
 export type Picks = Record<number, string>
@@ -43,6 +43,17 @@ export function prune(picks: Picks): Picks {
 
 export function setPick(picks: Picks, matchId: number, teamId: string): Picks {
   return prune({ ...picks, [matchId]: teamId })
+}
+
+// Force every already-played match to its real winner, then prune so any
+// predictions that those results invalidate are cleared. Always run this when
+// loading or mutating picks so finished games stay locked.
+export function applyResults(picks: Picks): Picks {
+  const forced: Picks = { ...picks }
+  for (const [id, result] of Object.entries(RESULTS)) {
+    forced[Number(id)] = result.winner
+  }
+  return prune(forced)
 }
 
 export function champion(picks: Picks): string | undefined {

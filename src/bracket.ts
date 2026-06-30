@@ -122,6 +122,30 @@ export const MATCHES_BY_ID: Record<number, Match> = Object.fromEntries(
   MATCHES.map((m) => [m.id, m]),
 )
 
+// Real-world results for matches that have already been played. These are
+// locked in the UI: the winner is forced and propagates forward, and users
+// predict only the remaining (undecided) matches. Scores are written in the
+// match's a–b order. Last updated: Jun 30, 2026.
+export interface MatchResult {
+  winner: string
+  score: string
+}
+
+export const RESULTS: Record<number, MatchResult> = {
+  73: { winner: 'CAN', score: '0–1' }, // South Africa 0–1 Canada
+  74: { winner: 'PAR', score: '1–1 a.e.t. (pens)' }, // Germany 1–1 Paraguay, Paraguay on penalties
+  75: { winner: 'MAR', score: '1–1 a.e.t. (pens)' }, // Netherlands 1–1 Morocco, Morocco on penalties
+  76: { winner: 'BRA', score: '2–1' }, // Brazil 2–1 Japan
+}
+
+export function isFinal(matchId: number): boolean {
+  return Object.prototype.hasOwnProperty.call(RESULTS, matchId)
+}
+
+export function finalWinner(matchId: number): string | undefined {
+  return RESULTS[matchId]?.winner
+}
+
 // The final is the highest-numbered match.
 export const FINAL_ID = Math.max(...MATCHES.map((m) => m.id))
 

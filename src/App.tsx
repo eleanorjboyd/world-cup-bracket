@@ -11,16 +11,19 @@ import { toPng } from 'html-to-image'
 import QRCode from 'qrcode'
 import {
   MATCHES,
+  RESULTS,
   ROUNDS,
   ROUND_LABEL,
   TEAMS,
   bracketSide,
+  isFinal,
   matchesInBracketOrder,
   type Match,
   type RoundId,
   type Slot,
 } from './bracket'
 import {
+  applyResults,
   champion,
   isComplete,
   setPick,
@@ -33,12 +36,12 @@ const STORAGE_KEY = 'wc2026-bracket-picks-v1'
 
 function loadPicks(): Picks {
   const shared = picksFromHash()
-  if (shared) return shared
+  if (shared) return applyResults(shared)
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    return raw ? (JSON.parse(raw) as Picks) : {}
+    return applyResults(raw ? (JSON.parse(raw) as Picks) : {})
   } catch {
-    return {}
+    return applyResults({})
   }
 }
 
@@ -85,13 +88,14 @@ export default function App() {
   }, [picks])
 
   const pick = useCallback((matchId: number, teamId: string | undefined) => {
-    if (!teamId) return
-    setPicks((prev) => setPick(prev, matchId, teamId))
+    if (!teamId || isFinal(matchId)) return
+    setPicks((prev) => applyResults(setPick(prev, matchId, teamId)))
   }, [])
 
   const championId = champion(picks)
   const complete = isComplete(picks)
   const pickedCount = Object.keys(picks).length
+  const lockedCount = Object.keys(RESULTS).length
 
   return (
     <div className={`app ${isMobile ? 'is-mobile' : 'is-desktop'}`}>
@@ -118,8 +122,8 @@ export default function App() {
           </button>
           <button
             className="reset"
-            onClick={() => setPicks({})}
-            disabled={pickedCount === 0}
+            onClick={() => setPicks(applyResults({}))}
+            disabled={pickedCount <= lockedCount}
           >
             Reset
           </button>
@@ -283,25 +287,30 @@ function MatchCard({
 }) {
   const { a, b } = teamsForMatch(match, picks)
   const winnerId = picks[match.id]
+  const final = isFinal(match.id)
+  const result = RESULTS[match.id]
 
   return (
-    <div className="match">
+    <div className={`match ${final ? 'is-final' : ''}`}>
       <div className="match-meta">
         <span>Match {match.id}</span>
-        <span>{match.date}</span>
+        <span>{final ? '🔒 FINAL' : match.date}</span>
       </div>
       <TeamRow
         teamId={a}
         emptyLabel={slotLabel(match.a)}
         selected={a !== undefined && winnerId === a}
+        locked={final}
         onSelect={() => onPick(match.id, a)}
       />
       <TeamRow
         teamId={b}
         emptyLabel={slotLabel(match.b)}
         selected={b !== undefined && winnerId === b}
+        locked={final}
         onSelect={() => onPick(match.id, b)}
       />
+      {final && result && <div className="match-score">{result.score}</div>}
     </div>
   )
 }
@@ -310,20 +319,25 @@ function TeamRow({
   teamId,
   emptyLabel,
   selected,
+  locked = false,
   onSelect,
 }: {
   teamId: string | undefined
   emptyLabel: string
   selected: boolean
+  locked?: boolean
   onSelect: () => void
 }) {
   const team = teamId ? TEAMS[teamId] : undefined
+  const lost = locked && !!team && !selected
 
   return (
     <button
-      className={`team ${selected ? 'selected' : ''} ${team ? '' : 'empty'}`}
-      onClick={onSelect}
-      disabled={!team}
+      className={`team ${selected ? 'selected' : ''} ${team ? '' : 'empty'} ${
+        locked ? 'locked' : ''
+      } ${lost ? 'lost' : ''}`}
+      onClick={locked ? undefined : onSelect}
+      disabled={!team || locked}
       type="button"
     >
       {team ? (
@@ -433,17 +447,20 @@ function StepMatch({
 }) {
   const { a, b } = teamsForMatch(match, picks)
   const winnerId = picks[match.id]
+  const final = isFinal(match.id)
+  const result = RESULTS[match.id]
   return (
-    <div className="step-match">
+    <div className={`step-match ${final ? 'is-final' : ''}`}>
       <div className="sm-meta">
         <span>Match {match.id}</span>
-        <span>{match.date}</span>
+        <span>{final ? `🔒 FINAL · ${result?.score ?? ''}` : match.date}</span>
       </div>
       <div className="sm-vs">
         <StepOption
           teamId={a}
           placeholder={slotLabel(match.a)}
           selected={a !== undefined && winnerId === a}
+          locked={final}
           onSelect={() => onPick(match.id, a)}
         />
         <span className="sm-mid">vs</span>
@@ -451,6 +468,7 @@ function StepMatch({
           teamId={b}
           placeholder={slotLabel(match.b)}
           selected={b !== undefined && winnerId === b}
+          locked={final}
           onSelect={() => onPick(match.id, b)}
         />
       </div>
@@ -463,19 +481,24 @@ function StepOption({
   teamId,
   placeholder,
   selected,
+  locked = false,
   onSelect,
 }: {
   teamId: string | undefined
   placeholder: string
   selected: boolean
+  locked?: boolean
   onSelect: () => void
 }) {
   const team = teamId ? TEAMS[teamId] : undefined
+  const lost = locked && !!team && !selected
   return (
     <button
-      className={`sm-opt ${selected ? 'sel' : ''}`}
-      disabled={!team}
-      onClick={onSelect}
+      className={`sm-opt ${selected ? 'sel' : ''} ${locked ? 'locked' : ''} ${
+        lost ? 'lost' : ''
+      }`}
+      disabled={!team || locked}
+      onClick={locked ? undefined : onSelect}
       type="button"
     >
       {team ? (
