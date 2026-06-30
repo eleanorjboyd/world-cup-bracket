@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>C · Retro pixel — WC2026 Wall chart</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --stub: 16px;
+        --bg: #0d0b1f;
+        --panel: #161334;
+        --panel2: #1d1947;
+        --neon: #39ff14;
+        --neon2: #00e5ff;
+        --magenta: #ff2e97;
+        --yellow: #ffe14d;
+        --line: #4a3aa8;
+        --connector: #6c5cff;
+        --text: #e9e6ff;
+        --muted: #9a93d6;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; }
+      body {
+        font-family: 'VT323', monospace; font-size: 18px;
+        color: var(--text); overflow: hidden;
+        background:
+          radial-gradient(100% 80% at 50% 0%, #241a55 0%, var(--bg) 70%);
+        image-rendering: pixelated;
+      }
+      /* CRT scanlines + flicker */
+      body::after {
+        content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 5;
+        background: repeating-linear-gradient(rgba(0,0,0,0) 0 2px, rgba(0,0,0,0.18) 2px 4px);
+        mix-blend-mode: multiply;
+      }
+      body::before {
+        content: ''; position: fixed; inset: 0; pointer-events: none; z-index: 4;
+        background: radial-gradient(120% 100% at 50% 50%, transparent 60%, rgba(0,0,0,0.5));
+      }
+
+      .top {
+        position: relative; z-index: 6;
+        display: flex; align-items: center; gap: 16px; padding: 14px 18px;
+        border-bottom: 4px solid var(--line);
+        background: var(--panel);
+      }
+      .top a { font-family: 'Press Start 2P'; font-size: 9px; color: var(--neon2); text-decoration: none; }
+      .top a:hover { color: #fff; }
+      .top h1 {
+        margin: 0; font-family: 'Press Start 2P'; font-size: 14px; color: var(--yellow);
+        text-shadow: 2px 2px 0 var(--magenta), 4px 4px 0 #00000080;
+      }
+      .top .spacer { flex: 1; }
+      .pill { font-family: 'Press Start 2P'; font-size: 9px; color: var(--neon); }
+      button.reset {
+        font-family: 'Press Start 2P'; font-size: 9px; cursor: pointer; color: #1a0033;
+        background: var(--yellow); border: none; padding: 9px 12px;
+        box-shadow: 4px 4px 0 #00000080; transition: transform 0.07s, box-shadow 0.07s;
+      }
+      button.reset:hover { transform: translate(-1px, -1px); box-shadow: 5px 5px 0 #000000a0; }
+      button.reset:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 #00000080; }
+
+      .stage {
+        position: relative; z-index: 3;
+        height: calc(100vh - 56px);
+        display: flex; align-items: center; justify-content: center; overflow: auto;
+      }
+      .wall { display: flex; align-items: stretch; gap: 22px; padding: 22px; transform-origin: center center; }
+      .col { display: flex; flex-direction: column; min-width: 0; }
+      .col-title {
+        font-family: 'Press Start 2P'; font-size: 8px; color: var(--neon2); text-align: center;
+        margin-bottom: 12px; white-space: nowrap; text-shadow: 2px 2px 0 #000;
+      }
+      .col-body { flex: 1; display: flex; flex-direction: column; justify-content: space-around; }
+      .cell { position: relative; display: flex; align-items: center; flex: 1 0 auto; }
+      .cell > .match { width: 100%; }
+
+      .match {
+        background: var(--panel); border: 3px solid var(--line);
+        padding: 5px 6px; display: flex; flex-direction: column; gap: 4px;
+        box-shadow: 4px 4px 0 #00000070;
+      }
+      .meta { display: flex; justify-content: space-between; font-family: 'Press Start 2P'; font-size: 6px; color: var(--muted); padding: 0 2px; }
+      .team {
+        display: flex; align-items: center; gap: 7px; width: 100%; text-align: left;
+        background: var(--panel2); color: var(--text); border: 2px solid transparent;
+        padding: 3px 7px; cursor: pointer; font-family: 'VT323'; font-size: 17px; line-height: 1.1;
+        transition: transform 0.1s ease, background 0.1s, color 0.1s, box-shadow 0.1s;
+      }
+      .team:hover:not(:disabled) { background: #2a2466; transform: translateX(3px); }
+      .team.sel {
+        background: var(--neon); color: #06210a; border-color: #b6ffae; font-weight: 700;
+        box-shadow: 0 0 0 2px #000, 0 0 14px var(--neon);
+        animation: pop 0.18s ease;
+      }
+      @keyframes pop { 0% { transform: scale(0.92); } 60% { transform: scale(1.06); } 100% { transform: scale(1); } }
+      .team.sel .nm::after { content: ' ★'; }
+      .team:disabled { cursor: default; opacity: 0.5; }
+      .team .nm { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .team .fl { font-size: 16px; }
+      .ph { color: var(--muted); font-style: italic; }
+
+      .col.side-left.connect .cell::after,
+      .col.side-right.connect .cell::after {
+        content: ''; position: absolute; top: 50%; width: var(--stub); height: 3px; background: var(--connector);
+      }
+      .col.side-left.connect .cell::after { left: 100%; }
+      .col.side-right.connect .cell::after { right: 100%; }
+      .col.side-left.pairs .cell:nth-child(odd)::before,
+      .col.side-right.pairs .cell:nth-child(odd)::before {
+        content: ''; position: absolute; top: 50%; height: 100%; width: 3px; background: var(--connector);
+      }
+      .col.side-left.pairs .cell:nth-child(odd)::before { left: calc(100% + var(--stub)); }
+      .col.side-right.pairs .cell:nth-child(odd)::before { right: calc(100% + var(--stub)); }
+
+      .col.final .match { border-color: var(--yellow); box-shadow: 0 0 0 2px #000, 0 0 16px rgba(255,225,77,0.6); }
+      .champ { margin-top: 14px; text-align: center; font-family: 'Press Start 2P'; font-size: 8px; color: var(--muted); }
+      .champ .big {
+        display: block; font-family: 'VT323'; font-size: 26px; margin-top: 6px; color: var(--yellow);
+        text-shadow: 2px 2px 0 var(--magenta);
+      }
+      .champ .big::before { content: '★ '; } .champ .big::after { content: ' ★'; }
+    </style>
+  </head>
+  <body>
+    <div class="top">
+      <a href="index.html">← BACK</a>
+      <h1>RETRO ARCADE</h1>
+      <span class="spacer"></span>
+      <span class="pill" id="count"></span>
+      <button class="reset" id="reset">RESET</button>
+    </div>
+    <div class="stage"><div class="wall" id="wall"></div></div>
+
+    <script src="engine.js"></script>
+    <script>
+      const store = createStore('wc2026-style-C');
+      const wall = document.getElementById('wall');
+      function side(id) { return PATH[id] ? (PATH[id][0] === '0' ? 'left' : 'right') : 'c'; }
+      function teamBtn(matchId, code, placeholder) {
+        const sel = store.winner(matchId) && store.winner(matchId) === code;
+        if (!code) return `<button class="team" disabled><span class="nm ph">${placeholder}</span></button>`;
+        return `<button class="team ${sel ? 'sel' : ''}" data-m="${matchId}" data-t="${code}">
+          <span class="fl">${flag(code)}</span><span class="nm">${name(code)}</span></button>`;
+      }
+      function matchHtml(m) {
+        const [a, b] = store.teamsOf(m);
+        const pa = m.a.win ? 'WIN ' + m.a.win : 'TBD';
+        const pb = m.b.win ? 'WIN ' + m.b.win : 'TBD';
+        return `<div class="match">
+          <div class="meta"><span>M${m.id}</span><span>${m.d}</span></div>
+          ${teamBtn(m.id, a, pa)}${teamBtn(m.id, b, pb)}
+        </div>`;
+      }
+      function colHtml(round, sideName, opts) {
+        const all = inBracketOrder(round).filter((m) => sideName === 'c' || side(m.id) === sideName);
+        const pairs = all.length > 1;
+        const cls = ['col'];
+        if (sideName === 'left') cls.push('side-left');
+        if (sideName === 'right') cls.push('side-right');
+        if (round === 'F') cls.push('final');
+        if (opts.connect) cls.push('connect');
+        if (opts.connect && pairs) cls.push('pairs');
+        const cells = all.map((m) => `<div class="cell">${matchHtml(m)}</div>`).join('');
+        return `<div class="${cls.join(' ')}" style="width:${opts.w}px">
+          <div class="col-title">${ROUND_LABEL[round]}</div><div class="col-body">${cells}</div></div>`;
+      }
+      function colInner(round) {
+        return inBracketOrder(round).map((m) => `<div class="cell">${matchHtml(m)}</div>`).join('');
+      }
+      function render() {
+        const W = { R32: 158, R16: 150, QF: 142, SF: 134, F: 170 };
+        const left = ['R32', 'R16', 'QF', 'SF'].map((r) => colHtml(r, 'left', { connect: true, w: W[r] })).join('');
+        const right = ['SF', 'QF', 'R16', 'R32'].map((r) => colHtml(r, 'right', { connect: true, w: W[r] })).join('');
+        const champ = store.champion();
+        const finalCol = `<div class="col final" style="width:${W.F}px">
+          <div class="col-title">FINAL</div>
+          <div class="col-body" style="justify-content:center">${colInner('F')}</div>
+          <div class="champ">${champ ? `CHAMPION<span class="big">${name(champ)}</span>` : '&nbsp;'}</div></div>`;
+        wall.innerHTML = left + finalCol + right;
+        document.getElementById('count').textContent = store.count() + '/' + MATCHES.length;
+        fit(); bind();
+      }
+      function bind() {
+        wall.querySelectorAll('.team[data-m]').forEach((el) =>
+          el.addEventListener('click', () => { store.pick(+el.dataset.m, el.dataset.t); render(); }));
+      }
+      function fit() {
+        wall.style.transform = 'scale(1)';
+        const stage = document.querySelector('.stage');
+        const s = Math.min(1, (stage.clientWidth - 8) / wall.scrollWidth, (stage.clientHeight - 8) / wall.scrollHeight);
+        wall.style.transform = `scale(${s})`;
+      }
+      document.getElementById('reset').addEventListener('click', () => { store.reset(); render(); });
+      window.addEventListener('resize', fit);
+      render();
+    </script>
+  </body>
+</html>

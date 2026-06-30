@@ -1,8 +1,16 @@
-import { useEffect, useMemo, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useLayoutEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import {
   MATCHES,
-  ROUNDS,
+  ROUND_LABEL,
   TEAMS,
+  bracketSide,
   matchesInBracketOrder,
   type Match,
   type RoundId,
@@ -28,8 +36,29 @@ function loadPicks(): Picks {
 }
 
 function slotLabel(slot: Slot): string {
-  return slot.kind === 'winner' ? `Winner of Match ${slot.matchId}` : 'TBD'
+  return slot.kind === 'winner' ? `Winner ${slot.matchId}` : 'TBD'
 }
+
+// Column widths per round (px), kept compact so the whole chart fits one screen.
+const COL_WIDTH: Record<RoundId, number> = {
+  R32: 158,
+  R16: 150,
+  QF: 142,
+  SF: 134,
+  F: 170,
+}
+
+const DECOR = [
+  { e: '⚽', left: '4%', top: '18%', d: '0s' },
+  { e: '🥅', left: '12%', top: '74%', d: '.6s' },
+  { e: '⚽', left: '90%', top: '22%', d: '1.1s' },
+  { e: '🎉', left: '84%', top: '80%', d: '.3s' },
+  { e: '🧤', left: '48%', top: '8%', d: '.9s' },
+  { e: '🚩', left: '30%', top: '92%', d: '1.4s' },
+]
+
+const LEFT_ROUNDS: RoundId[] = ['R32', 'R16', 'QF', 'SF']
+const RIGHT_ROUNDS: RoundId[] = ['SF', 'QF', 'R16', 'R32']
 
 export default function App() {
   const [picks, setPicks] = useState<Picks>(loadPicks)
@@ -38,77 +67,138 @@ export default function App() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(picks))
   }, [picks])
 
-  const matchesByRound = useMemo(() => {
-    const map: Record<RoundId, Match[]> = {
-      R32: [],
-      R16: [],
-      QF: [],
-      SF: [],
-      F: [],
-    }
-    for (const r of ROUNDS) map[r.id] = matchesInBracketOrder(r.id)
-    return map
+  const pick = useCallback((matchId: number, teamId: string | undefined) => {
+    if (!teamId) return
+    setPicks((prev) => setPick(prev, matchId, teamId))
   }, [])
 
   const championId = champion(picks)
   const complete = isComplete(picks)
   const pickedCount = Object.keys(picks).length
 
-  function pick(matchId: number, teamId: string | undefined) {
-    if (!teamId) return
-    setPicks((prev) => setPick(prev, matchId, teamId))
-  }
-
-  function reset() {
-    setPicks({})
-  }
-
   return (
     <div className="app">
+      <div className="decor" aria-hidden>
+        {DECOR.map((d, i) => (
+          <span key={i} style={{ left: d.left, top: d.top, animationDelay: d.d }}>
+            {d.e}
+          </span>
+        ))}
+      </div>
+
       <header className="topbar">
-        <div>
-          <h1>World Cup 2026 — Bracket Predictor</h1>
-          <p className="sub">
-            Pick a winner in every match. Your picks flow into the next round and
-            save automatically.
-          </p>
-        </div>
+        <h1>World Cup 2026 — Pick&apos;em</h1>
         <div className="actions">
           <span className="progress">
             {pickedCount}/{MATCHES.length} picked
           </span>
-          <button className="reset" onClick={reset} disabled={pickedCount === 0}>
+          <button
+            className="reset"
+            onClick={() => setPicks({})}
+            disabled={pickedCount === 0}
+          >
             Reset
           </button>
         </div>
       </header>
 
-      {championId && (
-        <div className={`champion-banner ${complete ? 'final' : ''}`}>
-          <span className="trophy">🏆</span>
-          <span className="champ-flag">{TEAMS[championId].flag}</span>
-          <span className="champ-name">{TEAMS[championId].name}</span>
-          <span className="champ-tag">
-            {complete ? 'your champion' : 'projected champion'}
-          </span>
-        </div>
-      )}
+      <FitStage>
+        <div className="wall">
+          {LEFT_ROUNDS.map((r) => (
+            <RoundColumn key={`L-${r}`} round={r} side="left" picks={picks} onPick={pick} />
+          ))}
 
-      <div className="bracket">
-        {ROUNDS.map((round) => (
-          <section className={`round round-${round.id}`} key={round.id}>
-            <h2 className="round-title">{round.label}</h2>
-            <div className="round-matches">
-              {matchesByRound[round.id].map((match) => (
-                <div className="cell" key={match.id}>
-                  <MatchCard match={match} picks={picks} onPick={pick} />
+          <section className="col final" style={{ width: COL_WIDTH.F }}>
+            <h2 className="col-title">Final</h2>
+            <div className="col-body" style={{ justifyContent: 'center' }}>
+              {matchesInBracketOrder('F').map((m) => (
+                <div className="cell" key={m.id}>
+                  <MatchCard match={m} picks={picks} onPick={pick} />
                 </div>
               ))}
             </div>
+            <div className="champ">
+              {championId ? (
+                <>
+                  {complete ? 'Champion' : 'Projected champion'}
+                  <span className="big">{TEAMS[championId].name}</span>
+                </>
+              ) : (
+                '\u00a0'
+              )}
+            </div>
           </section>
-        ))}
+
+          {RIGHT_ROUNDS.map((r) => (
+            <RoundColumn key={`R-${r}`} round={r} side="right" picks={picks} onPick={pick} />
+          ))}
+        </div>
+      </FitStage>
+    </div>
+  )
+}
+
+// Scales its child down so the whole bracket fits the available space.
+function FitStage({ children }: { children: ReactNode }) {
+  const stageRef = useRef<HTMLDivElement>(null)
+  const wallRef = useRef<HTMLDivElement>(null)
+  const [scale, setScale] = useState(1)
+
+  const fit = useCallback(() => {
+    const stage = stageRef.current
+    const wall = wallRef.current
+    if (!stage || !wall) return
+    const sx = (stage.clientWidth - 8) / wall.offsetWidth
+    const sy = (stage.clientHeight - 8) / wall.offsetHeight
+    setScale(Math.min(1, sx, sy))
+  }, [])
+
+  useLayoutEffect(() => {
+    fit()
+  })
+
+  useEffect(() => {
+    window.addEventListener('resize', fit)
+    return () => window.removeEventListener('resize', fit)
+  }, [fit])
+
+  return (
+    <div className="stage" ref={stageRef}>
+      <div className="wall-fit" ref={wallRef} style={{ transform: `scale(${scale})` }}>
+        {children}
       </div>
     </div>
+  )
+}
+
+function RoundColumn({
+  round,
+  side,
+  picks,
+  onPick,
+}: {
+  round: RoundId
+  side: 'left' | 'right'
+  picks: Picks
+  onPick: (matchId: number, teamId: string | undefined) => void
+}) {
+  const matches = matchesInBracketOrder(round).filter(
+    (m) => bracketSide(m.id) === side,
+  )
+  const classes = ['col', side === 'left' ? 'side-left' : 'side-right', 'connect']
+  if (matches.length > 1) classes.push('pairs')
+
+  return (
+    <section className={classes.join(' ')} style={{ width: COL_WIDTH[round] }}>
+      <h2 className="col-title">{ROUND_LABEL[round]}</h2>
+      <div className="col-body">
+        {matches.map((m) => (
+          <div className="cell" key={m.id}>
+            <MatchCard match={m} picks={picks} onPick={onPick} />
+          </div>
+        ))}
+      </div>
+    </section>
   )
 }
 
@@ -127,22 +217,21 @@ function MatchCard({
   return (
     <div className="match">
       <div className="match-meta">
-        <span className="match-no">Match {match.id}</span>
-        <span className="match-date">{match.date}</span>
+        <span>Match {match.id}</span>
+        <span>{match.date}</span>
       </div>
       <TeamRow
         teamId={a}
         emptyLabel={slotLabel(match.a)}
-        selected={winnerId === a && a !== undefined}
+        selected={a !== undefined && winnerId === a}
         onSelect={() => onPick(match.id, a)}
       />
       <TeamRow
         teamId={b}
         emptyLabel={slotLabel(match.b)}
-        selected={winnerId === b && b !== undefined}
+        selected={b !== undefined && winnerId === b}
         onSelect={() => onPick(match.id, b)}
       />
-      {match.venue && <div className="venue">📍 {match.venue}</div>}
     </div>
   )
 }
@@ -159,20 +248,18 @@ function TeamRow({
   onSelect: () => void
 }) {
   const team = teamId ? TEAMS[teamId] : undefined
-  const disabled = !team
 
   return (
     <button
-      className={`team ${selected ? 'selected' : ''} ${disabled ? 'empty' : ''}`}
+      className={`team ${selected ? 'selected' : ''} ${team ? '' : 'empty'}`}
       onClick={onSelect}
-      disabled={disabled}
+      disabled={!team}
       type="button"
     >
       {team ? (
         <>
           <span className="flag">{team.flag}</span>
           <span className="name">{team.name}</span>
-          {selected && <span className="check">✓</span>}
         </>
       ) : (
         <span className="name placeholder">{emptyLabel}</span>
@@ -180,3 +267,4 @@ function TeamRow({
     </button>
   )
 }
+

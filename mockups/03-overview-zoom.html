@@ -1,0 +1,254 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>C · Overview + zoom — WC2026 Bracket</title>
+    <style>
+      :root {
+        --bg: #0b1020; --bg-soft: #151c33; --card: #1b2440; --card2: #222d4f;
+        --line: #2c3866; --connector: #3a4a78; --text: #e8ecf8; --muted: #94a0c4;
+        --accent: #00d68f; --accent-soft: rgba(0, 214, 143, 0.16); --gold: #ffd24a;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; min-height: 100%; }
+      body {
+        font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        background: radial-gradient(1100px 560px at 50% -10%, #1a2548 0%, var(--bg) 55%);
+        color: var(--text); padding: 0 16px 40px;
+      }
+      .top { max-width: 1080px; margin: 0 auto; display: flex; align-items: center; gap: 14px; padding: 14px 4px; }
+      .top a { color: var(--muted); text-decoration: none; font-size: 13px; }
+      .top a:hover { color: var(--text); }
+      .top h1 { font-size: 15px; margin: 0; }
+      .top .spacer { flex: 1; }
+      .pill { font-size: 12px; color: var(--muted); }
+      .reset { background: transparent; color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 6px 12px; cursor: pointer; }
+
+      .hint { max-width: 1080px; margin: 0 auto 14px; color: var(--muted); font-size: 14px; text-align: center; }
+
+      .map {
+        max-width: 1080px; margin: 0 auto; display: grid; gap: 16px;
+        grid-template-columns: 1fr 1.1fr 1fr;
+        grid-template-areas: "r1 final r3" "r2 final r4";
+      }
+      .region {
+        background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 14px;
+        cursor: pointer; transition: border-color 0.15s, transform 0.1s; min-height: 150px;
+      }
+      .region:hover { border-color: var(--accent); transform: translateY(-3px); }
+      .region h3 { margin: 0 0 4px; font-size: 14px; }
+      .region .sub { color: var(--muted); font-size: 11px; margin-bottom: 10px; }
+      .mini { display: flex; flex-direction: column; gap: 5px; }
+      .mini .row {
+        display: flex; align-items: center; gap: 6px; font-size: 12px;
+        background: var(--bg-soft); border-radius: 7px; padding: 5px 8px; border: 1px solid transparent;
+      }
+      .mini .row.picked { border-color: rgba(0,214,143,0.4); }
+      .mini .row .vs { color: var(--muted); }
+      .mini .row .win { margin-left: auto; font-weight: 700; color: var(--accent); font-size: 11px; }
+      .region .qf {
+        margin-top: 10px; padding-top: 10px; border-top: 1px dashed var(--line);
+        font-size: 12px; color: var(--muted); display: flex; align-items: center; gap: 6px;
+      }
+      .region .qf b { color: var(--text); }
+
+      .region.r1 { grid-area: r1; } .region.r2 { grid-area: r2; }
+      .region.r3 { grid-area: r3; } .region.r4 { grid-area: r4; }
+      .region.final { grid-area: final; border-color: rgba(255,210,74,0.4); display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; }
+      .region.final .trophy { font-size: 40px; }
+      .region.final .champ { font-size: 22px; font-weight: 800; margin-top: 6px; }
+      .region.final .champ.empty { color: var(--muted); font-weight: 500; font-size: 14px; }
+      .region.final .tag { color: var(--gold); text-transform: uppercase; letter-spacing: 0.08em; font-size: 11px; margin-top: 6px; }
+      .badge { float: right; font-size: 11px; color: var(--muted); }
+      .badge.full { color: var(--accent); }
+
+      /* modal */
+      .overlay {
+        position: fixed; inset: 0; background: rgba(4,8,20,0.72); backdrop-filter: blur(3px);
+        display: none; align-items: center; justify-content: center; padding: 20px; z-index: 10;
+      }
+      .overlay.open { display: flex; }
+      .panel {
+        background: var(--bg); border: 1px solid var(--line); border-radius: 18px; width: min(960px, 100%);
+        max-height: 90vh; overflow: auto; padding: 20px;
+      }
+      .panel-top { display: flex; align-items: center; gap: 12px; margin-bottom: 16px; }
+      .panel-top h2 { margin: 0; font-size: 20px; }
+      .panel-top .spacer { flex: 1; }
+      .close { background: var(--card); border: 1px solid var(--line); color: var(--text); border-radius: 10px; padding: 8px 14px; cursor: pointer; font-size: 14px; }
+
+      .zbracket { display: flex; gap: 28px; align-items: stretch; }
+      .zcol { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+      .zcol .ztitle { font-size: 11px; text-transform: uppercase; letter-spacing: 0.09em; color: var(--muted); text-align: center; margin-bottom: 10px; }
+      .zbody { flex: 1; display: flex; flex-direction: column; justify-content: space-around; gap: 14px; }
+      .zmatch { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 10px; }
+      .zmeta { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); margin-bottom: 6px; }
+      .zteam {
+        display: flex; align-items: center; gap: 9px; width: 100%; text-align: left; background: var(--bg-soft);
+        color: var(--text); border: 1px solid transparent; border-radius: 8px; padding: 10px 11px; cursor: pointer; font-size: 15px;
+        margin-bottom: 6px;
+      }
+      .zteam:last-child { margin-bottom: 0; }
+      .zteam:hover:not(:disabled) { background: #1f2b4d; }
+      .zteam.sel { background: var(--accent-soft); border-color: var(--accent); font-weight: 700; }
+      .zteam:disabled { cursor: default; opacity: 0.6; }
+      .zteam .fl { font-size: 20px; } .zteam .nm { flex: 1; }
+      .zteam .ph { color: var(--muted); font-style: italic; font-size: 13px; }
+      .zteam .ck { color: var(--accent); font-weight: 800; }
+      .zvenue { font-size: 11px; color: var(--muted); margin-top: 6px; }
+    </style>
+  </head>
+  <body>
+    <div class="top">
+      <a href="index.html">← mockups</a>
+      <h1>C · Overview + zoom</h1>
+      <span class="spacer"></span>
+      <span class="pill" id="count"></span>
+      <button class="reset" id="reset">Reset</button>
+    </div>
+    <p class="hint">Click any region to zoom in and fill out that quarter of the bracket.</p>
+    <div class="map" id="map"></div>
+
+    <div class="overlay" id="overlay">
+      <div class="panel">
+        <div class="panel-top">
+          <h2 id="panelTitle"></h2>
+          <span class="spacer"></span>
+          <button class="close" id="close">Close ✕</button>
+        </div>
+        <div class="zbracket" id="zbracket"></div>
+      </div>
+    </div>
+
+    <script src="engine.js"></script>
+    <script>
+      const store = createStore('wc2026-mock-C');
+
+      // A region is anchored on a QF match; collect that match + all feeders.
+      function descendants(id) {
+        const out = [];
+        (function walk(x) {
+          out.push(BY_ID[x]);
+          const m = BY_ID[x];
+          if (m.a.win) walk(m.a.win);
+          if (m.b.win) walk(m.b.win);
+        })(id);
+        return out;
+      }
+
+      const REGIONS = [
+        { key: 'r1', title: 'Region 1', qf: 97 },
+        { key: 'r2', title: 'Region 2', qf: 98 },
+        { key: 'r3', title: 'Region 3', qf: 99 },
+        { key: 'r4', title: 'Region 4', qf: 100 },
+      ];
+
+      function r32of(qfId) {
+        return descendants(qfId).filter((m) => m.r === 'R32').sort((a, b) => PATH[a.id] < PATH[b.id] ? -1 : 1);
+      }
+
+      function miniRow(m) {
+        const [a, b] = store.teamsOf(m);
+        const win = store.winner(m.id);
+        return `<div class="row ${win ? 'picked' : ''}">
+          <span>${flag(a)} ${name(a) || '—'}</span><span class="vs">v</span><span>${flag(b)} ${name(b) || '—'}</span>
+          ${win ? `<span class="win">${flag(win)}</span>` : ''}
+        </div>`;
+      }
+
+      function regionCard(reg) {
+        const r32 = r32of(reg.qf);
+        const all = descendants(reg.qf);
+        const picked = all.filter((m) => store.winner(m.id) != null).length;
+        const full = picked === all.length;
+        const qfWin = store.winner(reg.qf);
+        return `<div class="region ${reg.key}" data-qf="${reg.qf}">
+          <span class="badge ${full ? 'full' : ''}">${picked}/${all.length}${full ? ' ✓' : ''}</span>
+          <h3>${reg.title}</h3>
+          <div class="sub">Round of 32 → Quarter-final</div>
+          <div class="mini">${r32.map(miniRow).join('')}</div>
+          <div class="qf">Quarter-finalist: <b>${qfWin ? flag(qfWin) + ' ' + name(qfWin) : '—'}</b></div>
+        </div>`;
+      }
+
+      function finalCard() {
+        const champ = store.champion();
+        const all = [101, 102, 104];
+        const picked = all.filter((id) => store.winner(id) != null).length;
+        return `<div class="region final" data-final="1">
+          <span class="badge ${picked === 3 ? 'full' : ''}">${picked}/3</span>
+          <div class="trophy">🏆</div>
+          <div class="champ ${champ ? '' : 'empty'}">${champ ? flag(champ) + ' ' + name(champ) : 'No champion yet'}</div>
+          <div class="tag">Semi-finals & Final</div>
+        </div>`;
+      }
+
+      function render() {
+        document.getElementById('map').innerHTML =
+          regionCard(REGIONS[0]) + regionCard(REGIONS[1]) + finalCard() +
+          regionCard(REGIONS[2]) + regionCard(REGIONS[3]);
+        document.getElementById('count').textContent = store.count() + '/' + MATCHES.length + ' picked';
+        document.querySelectorAll('.region[data-qf]').forEach((el) =>
+          el.addEventListener('click', () => openRegion(+el.dataset.qf)));
+        document.querySelector('.region.final').addEventListener('click', openFinal);
+      }
+
+      // ---- zoom panel ----
+      function zteam(matchId, code, placeholder) {
+        const sel = store.winner(matchId) === code && code;
+        if (!code) return `<button class="zteam" disabled><span class="nm ph">${placeholder}</span></button>`;
+        return `<button class="zteam ${sel ? 'sel' : ''}" data-m="${matchId}" data-t="${code}">
+          <span class="fl">${flag(code)}</span><span class="nm">${name(code)}</span>${sel ? '<span class="ck">✓</span>' : ''}</button>`;
+      }
+      function zmatch(m) {
+        const [a, b] = store.teamsOf(m);
+        const pa = m.a.win ? 'Winner ' + m.a.win : 'TBD';
+        const pb = m.b.win ? 'Winner ' + m.b.win : 'TBD';
+        return `<div class="zmatch">
+          <div class="zmeta"><span>Match ${m.id}</span><span>${m.d}</span></div>
+          ${zteam(m.id, a, pa)}${zteam(m.id, b, pb)}
+          ${m.v ? `<div class="zvenue">📍 ${m.v}</div>` : ''}
+        </div>`;
+      }
+      function zcol(title, matches) {
+        return `<div class="zcol"><div class="ztitle">${title}</div>
+          <div class="zbody">${matches.map(zmatch).join('')}</div></div>`;
+      }
+
+      function openRegion(qfId) {
+        const ms = descendants(qfId);
+        const sortR = (r) => ms.filter((m) => m.r === r).sort((a, b) => PATH[a.id] < PATH[b.id] ? -1 : 1);
+        const reg = REGIONS.find((r) => r.qf === qfId);
+        document.getElementById('panelTitle').textContent = reg.title;
+        document.getElementById('zbracket').innerHTML =
+          zcol('Round of 32', sortR('R32')) + zcol('Round of 16', sortR('R16')) + zcol('Quarter-final', sortR('QF'));
+        showPanel();
+      }
+      function openFinal() {
+        document.getElementById('panelTitle').textContent = 'Semi-finals & Final';
+        document.getElementById('zbracket').innerHTML =
+          zcol('Semi-finals', [BY_ID[101], BY_ID[102]]) + zcol('Final', [BY_ID[104]]);
+        showPanel();
+      }
+      function showPanel() {
+        document.getElementById('overlay').classList.add('open');
+        document.querySelectorAll('.zteam[data-m]').forEach((el) =>
+          el.addEventListener('click', () => {
+            store.pick(+el.dataset.m, el.dataset.t);
+            // re-open same panel to refresh, keep map in sync
+            const title = document.getElementById('panelTitle').textContent;
+            const reg = REGIONS.find((r) => r.title === title);
+            if (reg) openRegion(reg.qf); else openFinal();
+            render();
+          }));
+      }
+      function closePanel() { document.getElementById('overlay').classList.remove('open'); }
+
+      document.getElementById('close').addEventListener('click', closePanel);
+      document.getElementById('overlay').addEventListener('click', (e) => { if (e.target.id === 'overlay') closePanel(); });
+      document.getElementById('reset').addEventListener('click', () => { store.reset(); render(); });
+      render();
+    </script>
+  </body>
+</html>

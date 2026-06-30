@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>WC2026 Bracket — Mockups</title>
+    <style>
+      :root {
+        --bg: #0b1020;
+        --card: #1b2440;
+        --line: #2c3866;
+        --text: #e8ecf8;
+        --muted: #94a0c4;
+        --accent: #00d68f;
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        min-height: 100vh;
+        font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        background: radial-gradient(1100px 560px at 70% -10%, #1a2548 0%, var(--bg) 55%);
+        color: var(--text);
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 40px 20px;
+        gap: 28px;
+      }
+      h1 { margin: 0; font-size: 30px; }
+      p.sub { margin: 0; color: var(--muted); }
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+        gap: 20px;
+        max-width: 880px;
+        width: 100%;
+      }
+      a.card {
+        display: block;
+        text-decoration: none;
+        color: inherit;
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 20px;
+        transition: border-color 0.15s, transform 0.1s;
+      }
+      a.card:hover { border-color: var(--accent); transform: translateY(-3px); }
+      .tag {
+        font-size: 12px;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--accent);
+        font-weight: 700;
+      }
+      .card h2 { margin: 8px 0 6px; font-size: 19px; }
+      .card p { margin: 0; color: var(--muted); font-size: 14px; line-height: 1.5; }
+      h2.section { margin: 10px 0 -6px; font-size: 16px; color: var(--muted); font-weight: 600; letter-spacing: 0.04em; }
+      .thumb {
+        height: 96px;
+        border-radius: 10px;
+        margin-bottom: 14px;
+        border: 1px solid var(--line);
+        background: var(--bg);
+        position: relative;
+        overflow: hidden;
+      }
+      .thumb i { position: absolute; background: var(--line); border-radius: 2px; display: block; }
+    </style>
+  </head>
+  <body>
+    <div style="text-align:center">
+      <h1>World Cup 2026 — layout mockups</h1>
+      <p class="sub">Three different ways to fill in the bracket. Click to open each one.</p>
+    </div>
+    <div class="grid">
+      <a class="card" href="01-wallchart.html">
+        <div class="thumb">
+          <i style="left:8px;top:10px;width:34px;height:8px"></i>
+          <i style="left:8px;top:26px;width:34px;height:8px"></i>
+          <i style="left:8px;top:50px;width:34px;height:8px"></i>
+          <i style="left:8px;top:66px;width:34px;height:8px"></i>
+          <i style="left:54px;top:18px;width:34px;height:8px"></i>
+          <i style="left:54px;top:58px;width:34px;height:8px"></i>
+          <i style="left:100px;top:38px;width:40px;height:12px;background:#00d68f"></i>
+          <i style="right:54px;top:18px;width:34px;height:8px"></i>
+          <i style="right:54px;top:58px;width:34px;height:8px"></i>
+          <i style="right:8px;top:10px;width:34px;height:8px"></i>
+          <i style="right:8px;top:26px;width:34px;height:8px"></i>
+          <i style="right:8px;top:50px;width:34px;height:8px"></i>
+          <i style="right:8px;top:66px;width:34px;height:8px"></i>
+        </div>
+        <span class="tag">Option A</span>
+        <h2>Wall chart</h2>
+        <p>The classic two-sided World Cup poster. Whole bracket on one screen, final in the middle.</p>
+      </a>
+      <a class="card" href="02-stepper.html">
+        <div class="thumb">
+          <i style="left:50%;transform:translateX(-50%);top:12px;width:120px;height:6px"></i>
+          <i style="left:50%;transform:translateX(-50%);top:32px;width:150px;height:20px;background:#00d68f"></i>
+          <i style="left:50%;transform:translateX(-50%);top:58px;width:150px;height:20px"></i>
+        </div>
+        <span class="tag">Option B</span>
+        <h2>Focus stepper</h2>
+        <p>One round at a time with big tappable cards. No scrolling — just pick and hit next.</p>
+      </a>
+      <a class="card" href="03-overview-zoom.html">
+        <div class="thumb">
+          <i style="left:10px;top:12px;width:54px;height:30px"></i>
+          <i style="left:74px;top:12px;width:54px;height:30px;background:#00d68f"></i>
+          <i style="right:10px;top:12px;width:54px;height:30px"></i>
+          <i style="left:10px;top:54px;width:54px;height:30px"></i>
+          <i style="left:74px;top:54px;width:54px;height:30px"></i>
+          <i style="right:10px;top:54px;width:54px;height:30px"></i>
+        </div>
+        <span class="tag">Option C</span>
+        <h2>Overview + zoom</h2>
+        <p>A map of the whole bracket. Click a region to zoom in and fill out that section.</p>
+      </a>
+    </div>
+  </body>
+</html>

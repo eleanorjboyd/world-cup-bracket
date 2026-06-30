@@ -1,0 +1,202 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>B · Airy futuristic — WC2026 Wall chart</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --stub: 16px;
+        --ink: #1a2238;
+        --muted: #7c87a6;
+        --line: #e3e9f7;
+        --connector: #cdd7ee;
+        --c1: #38bdf8; /* cyan */
+        --c2: #8b5cf6; /* violet */
+        --glass: rgba(255, 255, 255, 0.65);
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; }
+      body {
+        font-family: 'Space Grotesk', system-ui, sans-serif;
+        color: var(--ink);
+        overflow: hidden;
+        background:
+          radial-gradient(60% 50% at 12% 8%, rgba(56, 189, 248, 0.16), transparent 60%),
+          radial-gradient(55% 50% at 90% 12%, rgba(139, 92, 246, 0.16), transparent 60%),
+          linear-gradient(180deg, #fbfdff 0%, #eef3fc 100%);
+      }
+      /* faint futuristic grid */
+      body::before {
+        content: ''; position: fixed; inset: 0; pointer-events: none; opacity: 0.5;
+        background-image:
+          linear-gradient(var(--line) 1px, transparent 1px),
+          linear-gradient(90deg, var(--line) 1px, transparent 1px);
+        background-size: 38px 38px;
+        mask-image: radial-gradient(70% 70% at 50% 40%, #000 30%, transparent 80%);
+      }
+
+      .top {
+        position: relative; z-index: 2;
+        display: flex; align-items: center; gap: 16px; padding: 16px 26px;
+      }
+      .top a { color: var(--muted); text-decoration: none; font-weight: 500; font-size: 14px; }
+      .top a:hover { color: var(--ink); }
+      .top h1 {
+        margin: 0; font-size: 19px; font-weight: 600; letter-spacing: -0.01em;
+        background: linear-gradient(90deg, var(--c1), var(--c2));
+        -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+      }
+      .top .spacer { flex: 1; }
+      .pill { font-size: 13px; color: var(--muted); font-weight: 500; }
+      button.reset {
+        font-family: inherit; font-weight: 600; cursor: pointer; font-size: 14px;
+        background: var(--glass); color: var(--ink); border: 1px solid var(--line);
+        border-radius: 12px; padding: 8px 16px; backdrop-filter: blur(8px);
+        transition: border-color 0.15s, box-shadow 0.15s;
+      }
+      button.reset:hover { border-color: var(--c1); box-shadow: 0 6px 24px rgba(56, 189, 248, 0.18); }
+
+      .stage {
+        position: relative; z-index: 1;
+        height: calc(100vh - 64px);
+        display: flex; align-items: center; justify-content: center; overflow: auto;
+      }
+      .wall { display: flex; align-items: stretch; gap: 30px; padding: 26px; transform-origin: center center; }
+      .col { display: flex; flex-direction: column; min-width: 0; }
+      .col-title {
+        font-size: 10px; text-transform: uppercase; letter-spacing: 0.18em; font-weight: 600;
+        color: var(--muted); text-align: center; margin-bottom: 12px; white-space: nowrap;
+      }
+      .col-body { flex: 1; display: flex; flex-direction: column; justify-content: space-around; }
+      .cell { position: relative; display: flex; align-items: center; flex: 1 0 auto; }
+      .cell > .match { width: 100%; }
+
+      .match {
+        background: var(--glass); border: 1px solid var(--line); border-radius: 16px;
+        padding: 7px 8px; display: flex; flex-direction: column; gap: 4px;
+        backdrop-filter: blur(10px);
+        box-shadow: 0 10px 30px -18px rgba(40, 60, 120, 0.45);
+      }
+      .meta { display: flex; justify-content: space-between; font-size: 9px; color: var(--muted); padding: 0 3px; }
+      .team {
+        display: flex; align-items: center; gap: 8px; width: 100%; text-align: left;
+        background: rgba(255, 255, 255, 0.7); color: var(--ink); border: 1px solid transparent;
+        border-radius: 11px; padding: 6px 9px; cursor: pointer; font-size: 12.5px; font-weight: 500;
+        font-family: inherit; transition: transform 0.12s, box-shadow 0.15s, background 0.15s;
+      }
+      .team:hover:not(:disabled) { background: #fff; box-shadow: 0 4px 16px -8px rgba(40,60,120,0.5); transform: translateY(-1px); }
+      .team.sel {
+        font-weight: 700; color: #0b2740; border-color: transparent;
+        background: linear-gradient(90deg, rgba(56,189,248,0.22), rgba(139,92,246,0.22));
+        box-shadow: 0 0 0 1px rgba(139,92,246,0.4), 0 8px 26px -12px rgba(99,102,241,0.7);
+      }
+      .team.sel .nm::after { content: ' ◆'; color: var(--c2); font-size: 10px; vertical-align: middle; }
+      .team:disabled { cursor: default; color: var(--muted); }
+      .team .nm { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .team .fl { font-size: 15px; }
+      .ph { color: #aab3cc; font-style: italic; }
+
+      .col.side-left.connect .cell::after,
+      .col.side-right.connect .cell::after {
+        content: ''; position: absolute; top: 50%; width: var(--stub); height: 1.5px; background: var(--connector);
+      }
+      .col.side-left.connect .cell::after { left: 100%; }
+      .col.side-right.connect .cell::after { right: 100%; }
+      .col.side-left.pairs .cell:nth-child(odd)::before,
+      .col.side-right.pairs .cell:nth-child(odd)::before {
+        content: ''; position: absolute; top: 50%; height: 100%; width: 1.5px; background: var(--connector);
+      }
+      .col.side-left.pairs .cell:nth-child(odd)::before { left: calc(100% + var(--stub)); }
+      .col.side-right.pairs .cell:nth-child(odd)::before { right: calc(100% + var(--stub)); }
+
+      .col.final .match {
+        border-color: transparent;
+        box-shadow: 0 0 0 1px rgba(139, 92, 246, 0.35), 0 18px 40px -20px rgba(99, 102, 241, 0.6);
+      }
+      .champ { margin-top: 14px; text-align: center; font-size: 12px; color: var(--muted); letter-spacing: 0.04em; }
+      .champ .big {
+        display: block; font-size: 20px; font-weight: 700; margin-top: 4px;
+        background: linear-gradient(90deg, var(--c1), var(--c2));
+        -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="top">
+      <a href="index.html">← mockups</a>
+      <h1>Airy · Futuristic</h1>
+      <span class="spacer"></span>
+      <span class="pill" id="count"></span>
+      <button class="reset" id="reset">Reset</button>
+    </div>
+    <div class="stage"><div class="wall" id="wall"></div></div>
+
+    <script src="engine.js"></script>
+    <script>
+      const store = createStore('wc2026-style-B');
+      const wall = document.getElementById('wall');
+      function side(id) { return PATH[id] ? (PATH[id][0] === '0' ? 'left' : 'right') : 'c'; }
+      function teamBtn(matchId, code, placeholder) {
+        const sel = store.winner(matchId) && store.winner(matchId) === code;
+        if (!code) return `<button class="team" disabled><span class="nm ph">${placeholder}</span></button>`;
+        return `<button class="team ${sel ? 'sel' : ''}" data-m="${matchId}" data-t="${code}">
+          <span class="fl">${flag(code)}</span><span class="nm">${name(code)}</span></button>`;
+      }
+      function matchHtml(m) {
+        const [a, b] = store.teamsOf(m);
+        const pa = m.a.win ? 'Winner ' + m.a.win : 'TBD';
+        const pb = m.b.win ? 'Winner ' + m.b.win : 'TBD';
+        return `<div class="match">
+          <div class="meta"><span>Match ${m.id}</span><span>${m.d}</span></div>
+          ${teamBtn(m.id, a, pa)}${teamBtn(m.id, b, pb)}
+        </div>`;
+      }
+      function colHtml(round, sideName, opts) {
+        const all = inBracketOrder(round).filter((m) => sideName === 'c' || side(m.id) === sideName);
+        const pairs = all.length > 1;
+        const cls = ['col'];
+        if (sideName === 'left') cls.push('side-left');
+        if (sideName === 'right') cls.push('side-right');
+        if (round === 'F') cls.push('final');
+        if (opts.connect) cls.push('connect');
+        if (opts.connect && pairs) cls.push('pairs');
+        const cells = all.map((m) => `<div class="cell">${matchHtml(m)}</div>`).join('');
+        return `<div class="${cls.join(' ')}" style="width:${opts.w}px">
+          <div class="col-title">${ROUND_LABEL[round]}</div><div class="col-body">${cells}</div></div>`;
+      }
+      function colInner(round) {
+        return inBracketOrder(round).map((m) => `<div class="cell">${matchHtml(m)}</div>`).join('');
+      }
+      function render() {
+        const W = { R32: 160, R16: 152, QF: 144, SF: 136, F: 172 };
+        const left = ['R32', 'R16', 'QF', 'SF'].map((r) => colHtml(r, 'left', { connect: true, w: W[r] })).join('');
+        const right = ['SF', 'QF', 'R16', 'R32'].map((r) => colHtml(r, 'right', { connect: true, w: W[r] })).join('');
+        const champ = store.champion();
+        const finalCol = `<div class="col final" style="width:${W.F}px">
+          <div class="col-title">Final</div>
+          <div class="col-body" style="justify-content:center">${colInner('F')}</div>
+          <div class="champ">${champ ? `Champion<span class="big">${flag(champ)} ${name(champ)}</span>` : '&nbsp;'}</div></div>`;
+        wall.innerHTML = left + finalCol + right;
+        document.getElementById('count').textContent = store.count() + '/' + MATCHES.length + ' picked';
+        fit(); bind();
+      }
+      function bind() {
+        wall.querySelectorAll('.team[data-m]').forEach((el) =>
+          el.addEventListener('click', () => { store.pick(+el.dataset.m, el.dataset.t); render(); }));
+      }
+      function fit() {
+        wall.style.transform = 'scale(1)';
+        const stage = document.querySelector('.stage');
+        const s = Math.min(1, (stage.clientWidth - 8) / wall.scrollWidth, (stage.clientHeight - 8) / wall.scrollHeight);
+        wall.style.transform = `scale(${s})`;
+      }
+      document.getElementById('reset').addEventListener('click', () => { store.reset(); render(); });
+      window.addEventListener('resize', fit);
+      render();
+    </script>
+  </body>
+</html>

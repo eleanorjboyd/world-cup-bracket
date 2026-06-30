@@ -1,18 +1,7 @@
 :root {
-  --bg: #0b1020;
-  --bg-soft: #151c33;
-  --card: #1b2440;
-  --line: #2c3866;
-  --connector: #38456f;
-  --text: #e8ecf8;
-  --muted: #94a0c4;
-  --accent: #00d68f;
-  --accent-soft: rgba(0, 214, 143, 0.16);
-  --gold: #ffd24a;
-
-  --col-width: 206px;
-  --col-gap: 40px;
-  --stub: 20px; /* half the column gap; connector arm length */
+  --stub: 16px;
+  --chalk: rgba(255, 255, 255, 0.85);
+  --ink: #143a1f;
 }
 
 * {
@@ -27,145 +16,169 @@ body,
 }
 
 body {
-  background: radial-gradient(1100px 560px at 70% -10%, #1a2548 0%, var(--bg) 55%);
-  color: var(--text);
-  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-  font-size: 14px;
+  color: var(--ink);
+  overflow: hidden;
+  font-family: 'Fredoka', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+  /* mowed-lawn stripes + vignette */
+  background:
+    radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.18), rgba(0, 0, 0, 0.25) 90%),
+    repeating-linear-gradient(115deg, #2f9e3f 0 64px, #2c9139 64px 128px);
 }
 
 .app {
-  padding: 20px clamp(12px, 3vw, 36px) 48px;
-  max-width: 1500px;
-  margin: 0 auto;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* kitschy floating field decorations */
+.decor {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  font-size: 34px;
+}
+.decor span {
+  position: absolute;
+  filter: drop-shadow(2px 3px 0 rgba(0, 0, 0, 0.25));
+  animation: bob 4s ease-in-out infinite;
+}
+@keyframes bob {
+  0%, 100% { transform: translateY(0) rotate(-6deg); }
+  50% { transform: translateY(-10px) rotate(8deg); }
 }
 
 .topbar {
+  position: relative;
+  z-index: 2;
   display: flex;
-  justify-content: space-between;
-  align-items: flex-start;
-  gap: 16px;
-  flex-wrap: wrap;
-  margin-bottom: 20px;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 20px;
+  background: linear-gradient(#1d6e2c, rgba(24, 96, 38, 0.39));
+  border-bottom: 4px dashed var(--chalk);
 }
 
 h1 {
-  font-size: clamp(20px, 2.4vw, 30px);
-  margin: 0 0 6px;
-}
-
-.sub {
   margin: 0;
-  color: var(--muted);
-  max-width: 60ch;
+  font-family: 'Luckiest Guy', cursive;
+  letter-spacing: 1px;
+  font-size: 24px;
+  color: #fff;
+  text-shadow: 2px 3px 0 #0a3315, 0 0 18px rgba(255, 255, 0, 0.4);
 }
 
 .actions {
   display: flex;
   align-items: center;
   gap: 12px;
+  margin-left: auto;
 }
 
 .progress {
-  color: var(--muted);
+  font-weight: 700;
+  color: #eafff0;
+  background: #0e4a1d;
+  padding: 4px 12px;
+  border-radius: 999px;
+  border: 2px solid var(--chalk);
   font-variant-numeric: tabular-nums;
-  font-size: 14px;
 }
 
 .reset {
-  background: transparent;
-  color: var(--text);
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 8px 14px;
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 700;
   cursor: pointer;
-  font-weight: 600;
-  transition: border-color 0.15s, background 0.15s;
+  background: #ffd23f;
+  color: #6a4a00;
+  border: 3px solid #fff;
+  border-radius: 999px;
+  padding: 7px 16px;
+  box-shadow: 0 4px 0 #b98800;
+  transition: transform 0.08s, box-shadow 0.08s;
 }
 
-.reset:hover:not(:disabled) {
-  border-color: var(--accent);
-  background: var(--accent-soft);
+.reset:active:not(:disabled) {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 #b98800;
 }
 
 .reset:disabled {
-  opacity: 0.4;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
-.champion-banner {
+.stage {
+  position: relative;
+  z-index: 1;
+  flex: 1;
   display: flex;
   align-items: center;
-  gap: 12px;
-  background: linear-gradient(90deg, rgba(255, 210, 74, 0.16), transparent);
-  border: 1px solid rgba(255, 210, 74, 0.4);
-  border-radius: 14px;
-  padding: 14px 18px;
-  margin-bottom: 24px;
+  justify-content: center;
+  overflow: auto;
 }
 
-.champion-banner.final {
-  box-shadow: 0 0 0 1px var(--gold), 0 8px 40px rgba(255, 210, 74, 0.25);
+.wall-fit {
+  transform-origin: center center;
 }
 
-.champion-banner .trophy {
-  font-size: 28px;
-}
-
-.champ-flag {
-  font-size: 26px;
-}
-
-.champ-name {
-  font-size: 20px;
-  font-weight: 800;
-}
-
-.champ-tag {
-  margin-left: auto;
-  text-transform: uppercase;
-  letter-spacing: 0.08em;
-  font-size: 12px;
-  color: var(--gold);
-}
-
-.bracket {
+.wall {
   display: flex;
-  gap: var(--col-gap);
-  align-items: stretch; /* every column shares the tallest column's height */
-  overflow-x: auto;
-  padding-bottom: 12px;
+  align-items: stretch;
+  gap: 22px;
+  padding: 22px;
+  /* chalked pitch box */
+  border: 4px solid var(--chalk);
+  border-radius: 18px;
+  background: radial-gradient(60% 120% at 50% 50%, rgba(255, 255, 255, 0.07), transparent);
 }
 
-.round {
-  width: var(--col-width);
-  flex: 0 0 auto;
+.col {
   display: flex;
   flex-direction: column;
+  min-width: 0;
 }
 
-.round-title {
-  font-size: 12px;
-  text-transform: uppercase;
-  letter-spacing: 0.1em;
-  color: var(--muted);
-  margin: 0 0 8px;
+.col-title {
+  font-family: 'Luckiest Guy', cursive;
+  letter-spacing: 0.5px;
+  font-size: 13px;
+  color: #fff;
   text-align: center;
-  position: sticky;
-  top: 0;
-  padding: 4px 0;
-  background: linear-gradient(var(--bg), rgba(11, 16, 32, 0.8));
-  z-index: 2;
+  margin: 0 0 8px;
+  white-space: nowrap;
+  text-shadow: 1px 2px 0 #0a3315;
 }
 
-.round-matches {
+.col-body {
+  flex: 1;
   display: flex;
   flex-direction: column;
   justify-content: space-around;
-  flex: 1;
 }
 
-/* Each cell occupies an equal vertical slice, so a later round's match centers
-   exactly between the two feeder matches above and below it. */
+.col.final .match {
+  border-color: #e8a400;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.4), 0 6px 0 rgba(0, 60, 20, 0.35);
+}
+
+.champ {
+  margin-top: 12px;
+  text-align: center;
+  font-family: 'Luckiest Guy', cursive;
+  color: #fff;
+  text-shadow: 1px 2px 0 #0a3315;
+}
+.champ .big {
+  display: block;
+  font-size: 22px;
+  margin-top: 4px;
+}
+.champ .big::before {
+  content: '🏆 ';
+}
+
 .cell {
   position: relative;
   display: flex;
@@ -177,100 +190,95 @@ h1 {
   width: 100%;
 }
 
-/* ---- Connector lines ---- */
-/* Arm leaving each match toward the next round. */
-.round:not(.round-F) .cell::after {
+/* ---- Connector lines (chalk) ---- */
+/* Arm leaving each match toward the centre (final). */
+.col.side-left.connect .cell::after,
+.col.side-right.connect .cell::after {
   content: '';
   position: absolute;
-  left: 100%;
   top: 50%;
   width: var(--stub);
-  height: 2px;
-  background: var(--connector);
+  height: 3px;
+  background: var(--chalk);
+  border-radius: 2px;
 }
+.col.side-left.connect .cell::after { left: 100%; }
+.col.side-right.connect .cell::after { right: 100%; }
 
-/* Vertical line joining each feeder pair, drawn from the upper match down to
-   the lower one; the next round's match sits level with its midpoint. */
-.round:not(.round-F) .cell:nth-child(odd)::before {
+/* Vertical line joining each feeder pair. */
+.col.side-left.pairs .cell:nth-child(odd)::before,
+.col.side-right.pairs .cell:nth-child(odd)::before {
   content: '';
   position: absolute;
-  left: calc(100% + var(--stub));
   top: 50%;
   height: 100%;
-  width: 2px;
-  background: var(--connector);
+  width: 3px;
+  background: var(--chalk);
+  border-radius: 2px;
 }
-
-/* Arm arriving into each match from the previous round. */
-.round:not(.round-R32) .cell .match {
-  position: relative;
-}
-.round:not(.round-R32) .cell .match::before {
-  content: '';
-  position: absolute;
-  right: 100%;
-  top: 50%;
-  width: var(--stub);
-  height: 2px;
-  background: var(--connector);
-}
+.col.side-left.pairs .cell:nth-child(odd)::before { left: calc(100% + var(--stub)); }
+.col.side-right.pairs .cell:nth-child(odd)::before { right: calc(100% + var(--stub)); }
 
 .match {
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 7px 8px;
+  background: #fffef6;
+  border: 3px solid #163;
+  border-radius: 12px;
+  padding: 5px 6px;
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: 3px;
+  box-shadow: 0 5px 0 rgba(0, 60, 20, 0.35);
 }
 
 .match-meta {
   display: flex;
   justify-content: space-between;
-  font-size: 10px;
-  color: var(--muted);
-  padding: 0 2px 1px;
+  font-size: 9px;
+  font-weight: 700;
+  color: #3b7a4d;
+  padding: 0 2px;
 }
 
 .team {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
   width: 100%;
   text-align: left;
-  background: var(--bg-soft);
-  color: var(--text);
-  border: 1px solid transparent;
-  border-radius: 7px;
-  padding: 6px 9px;
+  background: #eafff0;
+  color: var(--ink);
+  border: 2px solid transparent;
+  border-radius: 8px;
+  padding: 4px 7px;
   cursor: pointer;
-  font-size: 13.5px;
-  transition: background 0.12s, border-color 0.12s, transform 0.05s;
+  font-size: 12px;
+  font-weight: 600;
+  font-family: 'Fredoka', sans-serif;
+  transition: transform 0.08s, background 0.12s, box-shadow 0.12s;
 }
 
 .team:hover:not(:disabled) {
-  background: #1f2b4d;
-  border-color: var(--line);
-}
-
-.team:active:not(:disabled) {
-  transform: scale(0.99);
+  background: #d6ffe2;
+  transform: translateX(2px);
 }
 
 .team.selected {
-  background: var(--accent-soft);
-  border-color: var(--accent);
+  background: #ffe14d;
+  border-color: #e8a400;
   font-weight: 700;
+  box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.2), 0 0 16px rgba(255, 220, 0, 0.7);
+}
+.team.selected .name::after {
+  content: ' ⚽';
 }
 
 .team.empty {
   cursor: default;
-  opacity: 0.7;
+  opacity: 0.55;
 }
 
 .flag {
-  font-size: 17px;
+  font-size: 15px;
   line-height: 1;
 }
 
@@ -282,21 +290,7 @@ h1 {
 }
 
 .placeholder {
-  color: var(--muted);
+  color: #8aa;
   font-style: italic;
-  font-size: 12px;
-}
-
-.check {
-  color: var(--accent);
-  font-weight: 800;
-}
-
-.venue {
-  font-size: 10px;
-  color: var(--muted);
-  padding: 1px 2px 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-weight: 500;
 }

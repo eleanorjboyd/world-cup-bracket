@@ -1,0 +1,196 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>A · Wall chart — WC2026 Bracket</title>
+    <style>
+      :root {
+        --bg: #0b1020; --bg-soft: #151c33; --card: #1b2440;
+        --line: #2c3866; --connector: #3a4a78;
+        --text: #e8ecf8; --muted: #94a0c4; --accent: #00d68f;
+        --accent-soft: rgba(0, 214, 143, 0.16); --gold: #ffd24a;
+        --stub: 16px;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; }
+      body {
+        font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+        background: radial-gradient(1100px 560px at 50% -10%, #1a2548 0%, var(--bg) 55%);
+        color: var(--text);
+        overflow: hidden;
+      }
+      .top {
+        display: flex; align-items: center; gap: 14px;
+        padding: 12px 20px; border-bottom: 1px solid var(--line);
+      }
+      .top a { color: var(--muted); text-decoration: none; font-size: 13px; }
+      .top a:hover { color: var(--text); }
+      .top h1 { font-size: 16px; margin: 0; }
+      .top .spacer { flex: 1; }
+      .pill { font-size: 12px; color: var(--muted); }
+      button.reset {
+        background: transparent; color: var(--text); border: 1px solid var(--line);
+        border-radius: 8px; padding: 6px 12px; cursor: pointer; font-weight: 600;
+      }
+      button.reset:hover { border-color: var(--accent); }
+
+      .stage {
+        height: calc(100vh - 52px);
+        display: flex; align-items: center; justify-content: center;
+        overflow: auto;
+      }
+      .wall {
+        display: flex; align-items: stretch; gap: 22px;
+        transform-origin: center center;
+        padding: 16px;
+      }
+      .col { display: flex; flex-direction: column; min-width: 0; }
+      .col-title {
+        font-size: 10px; text-transform: uppercase; letter-spacing: 0.09em;
+        color: var(--muted); text-align: center; margin-bottom: 8px; white-space: nowrap;
+      }
+      .col-body {
+        flex: 1; display: flex; flex-direction: column; justify-content: space-around;
+      }
+      .cell { position: relative; display: flex; align-items: center; flex: 1 0 auto; }
+      .cell > .match { width: 100%; }
+
+      .match {
+        background: var(--card); border: 1px solid var(--line);
+        border-radius: 9px; padding: 5px 6px; display: flex; flex-direction: column; gap: 3px;
+      }
+      .meta { display: flex; justify-content: space-between; font-size: 9px; color: var(--muted); padding: 0 2px; }
+      .team {
+        display: flex; align-items: center; gap: 6px; width: 100%; text-align: left;
+        background: var(--bg-soft); color: var(--text); border: 1px solid transparent;
+        border-radius: 6px; padding: 4px 7px; cursor: pointer; font-size: 12px;
+      }
+      .team:hover:not(:disabled) { background: #1f2b4d; }
+      .team.sel { background: var(--accent-soft); border-color: var(--accent); font-weight: 700; }
+      .team:disabled { cursor: default; opacity: 0.6; }
+      .team .nm { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .team .fl { font-size: 14px; }
+      .ph { color: var(--muted); font-style: italic; font-size: 11px; }
+
+      /* connectors */
+      .col.side-left.connect .cell::after,
+      .col.side-right.connect .cell::after {
+        content: ''; position: absolute; top: 50%; width: var(--stub); height: 2px;
+        background: var(--connector);
+      }
+      .col.side-left.connect .cell::after { left: 100%; }
+      .col.side-right.connect .cell::after { right: 100%; }
+      .col.side-left.pairs .cell:nth-child(odd)::before,
+      .col.side-right.pairs .cell:nth-child(odd)::before {
+        content: ''; position: absolute; top: 50%; height: 100%; width: 2px;
+        background: var(--connector);
+      }
+      .col.side-left.pairs .cell:nth-child(odd)::before { left: calc(100% + var(--stub)); }
+      .col.side-right.pairs .cell:nth-child(odd)::before { right: calc(100% + var(--stub)); }
+
+      /* final */
+      .col.final .match { border-color: rgba(255,210,74,0.5); }
+      .champ {
+        margin-top: 10px; text-align: center; font-size: 12px; color: var(--gold);
+      }
+      .champ .big { display: block; font-size: 22px; margin-top: 2px; }
+    </style>
+  </head>
+  <body>
+    <div class="top">
+      <a href="index.html">← mockups</a>
+      <h1>A · Wall chart</h1>
+      <span class="spacer"></span>
+      <span class="pill" id="count"></span>
+      <button class="reset" id="reset">Reset</button>
+    </div>
+    <div class="stage"><div class="wall" id="wall"></div></div>
+
+    <script src="engine.js"></script>
+    <script>
+      const store = createStore('wc2026-mock-A');
+      const wall = document.getElementById('wall');
+
+      function side(id) { return PATH[id] ? (PATH[id][0] === '0' ? 'left' : 'right') : 'c'; }
+
+      function teamBtn(matchId, code, placeholder) {
+        const sel = store.winner(matchId) && store.winner(matchId) === code;
+        if (!code) return `<button class="team" disabled><span class="nm ph">${placeholder}</span></button>`;
+        return `<button class="team ${sel ? 'sel' : ''}" data-m="${matchId}" data-t="${code}">
+          <span class="fl">${flag(code)}</span><span class="nm">${name(code)}</span></button>`;
+      }
+
+      function matchHtml(m) {
+        const [a, b] = store.teamsOf(m);
+        const pa = m.a.win ? 'Winner ' + m.a.win : 'TBD';
+        const pb = m.b.win ? 'Winner ' + m.b.win : 'TBD';
+        return `<div class="match">
+          <div class="meta"><span>Match ${m.id}</span><span>${m.d}</span></div>
+          ${teamBtn(m.id, a, pa)}
+          ${teamBtn(m.id, b, pb)}
+        </div>`;
+      }
+
+      function colHtml(round, sideName, opts) {
+        const all = inBracketOrder(round).filter((m) => sideName === 'c' || side(m.id) === sideName);
+        const pairs = all.length > 1;
+        const cls = ['col'];
+        if (sideName === 'left') cls.push('side-left');
+        if (sideName === 'right') cls.push('side-right');
+        if (round === 'F') cls.push('final');
+        if (opts.connect) cls.push('connect');
+        if (opts.connect && pairs) cls.push('pairs');
+        const cells = all.map((m) => `<div class="cell">${matchHtml(m)}</div>`).join('');
+        return `<div class="${cls.join(' ')}" style="width:${opts.w}px">
+          <div class="col-title">${ROUND_LABEL[round]}</div>
+          <div class="col-body">${cells}</div>
+        </div>`;
+      }
+
+      function render() {
+        const W = { R32: 156, R16: 150, QF: 142, SF: 134, F: 168 };
+        const left = ['R32', 'R16', 'QF', 'SF']
+          .map((r) => colHtml(r, 'left', { connect: true, w: W[r] })).join('');
+        const right = ['SF', 'QF', 'R16', 'R32']
+          .map((r) => colHtml(r, 'right', { connect: true, w: W[r] })).join('');
+        const champ = store.champion();
+        const finalCol = `<div class="col final" style="width:${W.F}px">
+          <div class="col-title">Final</div>
+          <div class="col-body" style="justify-content:center">${colInner('F')}</div>
+          <div class="champ">${champ ? `Champion<span class="big">${flag(champ)} ${name(champ)}</span>` : '&nbsp;'}</div>
+        </div>`;
+        wall.innerHTML = left + finalCol + right;
+        document.getElementById('count').textContent = store.count() + '/' + MATCHES.length + ' picked';
+        fit();
+        bind();
+      }
+
+      function colInner(round) {
+        return inBracketOrder(round).map((m) => `<div class="cell">${matchHtml(m)}</div>`).join('');
+      }
+
+      function bind() {
+        wall.querySelectorAll('.team[data-m]').forEach((el) => {
+          el.addEventListener('click', () => {
+            store.pick(+el.dataset.m, el.dataset.t);
+            render();
+          });
+        });
+      }
+
+      function fit() {
+        wall.style.transform = 'scale(1)';
+        const stage = document.querySelector('.stage');
+        const sx = (stage.clientWidth - 8) / wall.scrollWidth;
+        const sy = (stage.clientHeight - 8) / wall.scrollHeight;
+        const s = Math.min(1, sx, sy);
+        wall.style.transform = `scale(${s})`;
+      }
+
+      document.getElementById('reset').addEventListener('click', () => { store.reset(); render(); });
+      window.addEventListener('resize', fit);
+      render();
+    </script>
+  </body>
+</html>

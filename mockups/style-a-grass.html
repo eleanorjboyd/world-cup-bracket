@@ -1,0 +1,199 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>A · Grass field — WC2026 Wall chart</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@500;600;700&family=Luckiest+Guy&display=swap" rel="stylesheet" />
+    <style>
+      :root {
+        --stub: 16px;
+        --chalk: rgba(255, 255, 255, 0.85);
+        --ink: #143a1f;
+      }
+      * { box-sizing: border-box; }
+      html, body { margin: 0; height: 100%; }
+      body {
+        font-family: 'Fredoka', system-ui, sans-serif;
+        color: var(--ink);
+        overflow: hidden;
+        /* mowed-lawn stripes + vignette */
+        background:
+          radial-gradient(120% 90% at 50% 0%, rgba(255, 255, 255, 0.18), rgba(0, 0, 0, 0.25) 90%),
+          repeating-linear-gradient(115deg, #2f9e3f 0 64px, #2c9139 64px 128px);
+      }
+      /* kitschy scattered decorations */
+      .decor { position: fixed; inset: 0; pointer-events: none; z-index: 0; font-size: 34px; }
+      .decor span { position: absolute; filter: drop-shadow(2px 3px 0 rgba(0,0,0,0.25)); animation: bob 4s ease-in-out infinite; }
+      @keyframes bob { 0%,100% { transform: translateY(0) rotate(-6deg);} 50% { transform: translateY(-10px) rotate(8deg);} }
+
+      .top {
+        position: relative; z-index: 2;
+        display: flex; align-items: center; gap: 14px; padding: 12px 20px;
+        background: linear-gradient(#1d6e2c, #18602663);
+        border-bottom: 4px dashed var(--chalk);
+      }
+      .top a { color: #eafff0; text-decoration: none; font-weight: 600; }
+      .top a:hover { color: #fff; }
+      .top h1 { margin: 0; font-family: 'Luckiest Guy', cursive; letter-spacing: 1px; font-size: 24px; color: #fff; text-shadow: 2px 3px 0 #0a3315, 0 0 18px rgba(255,255,0,0.4); }
+      .top .spacer { flex: 1; }
+      .pill { font-weight: 700; color: #eafff0; background: #0e4a1d; padding: 4px 12px; border-radius: 999px; border: 2px solid #fffd; }
+      button.reset {
+        font-family: 'Fredoka'; font-weight: 700; cursor: pointer;
+        background: #ffd23f; color: #6a4a00; border: 3px solid #fff; border-radius: 999px;
+        padding: 7px 16px; box-shadow: 0 4px 0 #b98800; transition: transform 0.08s, box-shadow 0.08s;
+      }
+      button.reset:active { transform: translateY(3px); box-shadow: 0 1px 0 #b98800; }
+
+      .stage {
+        position: relative; z-index: 1;
+        height: calc(100vh - 56px);
+        display: flex; align-items: center; justify-content: center; overflow: auto;
+      }
+      .wall {
+        display: flex; align-items: stretch; gap: 22px; padding: 22px;
+        transform-origin: center center;
+        /* chalked pitch box */
+        border: 4px solid var(--chalk); border-radius: 18px;
+        background: radial-gradient(60% 120% at 50% 50%, rgba(255,255,255,0.07), transparent);
+      }
+      .col { display: flex; flex-direction: column; min-width: 0; }
+      .col-title {
+        font-family: 'Luckiest Guy', cursive; letter-spacing: 0.5px;
+        font-size: 13px; color: #fff; text-align: center; margin-bottom: 8px; white-space: nowrap;
+        text-shadow: 1px 2px 0 #0a3315;
+      }
+      .col-body { flex: 1; display: flex; flex-direction: column; justify-content: space-around; }
+      .cell { position: relative; display: flex; align-items: center; flex: 1 0 auto; }
+      .cell > .match { width: 100%; }
+
+      .match {
+        background: #fffef6; border: 3px solid #163; border-radius: 12px;
+        padding: 5px 6px; display: flex; flex-direction: column; gap: 3px;
+        box-shadow: 0 5px 0 rgba(0, 60, 20, 0.35);
+      }
+      .meta { display: flex; justify-content: space-between; font-size: 9px; font-weight: 700; color: #3b7a4d; padding: 0 2px; }
+      .team {
+        display: flex; align-items: center; gap: 6px; width: 100%; text-align: left;
+        background: #eafff0; color: var(--ink); border: 2px solid transparent;
+        border-radius: 8px; padding: 4px 7px; cursor: pointer; font-size: 12px; font-weight: 600; font-family: 'Fredoka';
+        transition: transform 0.08s, background 0.12s, box-shadow 0.12s;
+      }
+      .team:hover:not(:disabled) { background: #d6ffe2; transform: translateX(2px); }
+      .team.sel {
+        background: #ffe14d; border-color: #e8a400; font-weight: 700;
+        box-shadow: 0 0 0 3px #fff3, 0 0 16px rgba(255, 220, 0, 0.7);
+      }
+      .team.sel .nm::after { content: ' ⚽'; }
+      .team:disabled { cursor: default; opacity: 0.55; }
+      .team .nm { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+      .team .fl { font-size: 15px; }
+      .ph { color: #8aa; font-style: italic; font-weight: 500; }
+
+      /* connectors = chalk lines */
+      .col.side-left.connect .cell::after,
+      .col.side-right.connect .cell::after {
+        content: ''; position: absolute; top: 50%; width: var(--stub); height: 3px;
+        background: var(--chalk); border-radius: 2px;
+      }
+      .col.side-left.connect .cell::after { left: 100%; }
+      .col.side-right.connect .cell::after { right: 100%; }
+      .col.side-left.pairs .cell:nth-child(odd)::before,
+      .col.side-right.pairs .cell:nth-child(odd)::before {
+        content: ''; position: absolute; top: 50%; height: 100%; width: 3px;
+        background: var(--chalk); border-radius: 2px;
+      }
+      .col.side-left.pairs .cell:nth-child(odd)::before { left: calc(100% + var(--stub)); }
+      .col.side-right.pairs .cell:nth-child(odd)::before { right: calc(100% + var(--stub)); }
+
+      .col.final .match { border-color: #e8a400; box-shadow: 0 0 0 3px #fff6, 0 6px 0 rgba(0,60,20,0.35); }
+      .champ { margin-top: 12px; text-align: center; font-family: 'Luckiest Guy', cursive; color: #fff; text-shadow: 1px 2px 0 #0a3315; }
+      .champ .big { display: block; font-size: 22px; margin-top: 4px; }
+      .champ .big::before { content: '🏆 '; }
+    </style>
+  </head>
+  <body>
+    <div class="decor">
+      <span style="left:4%;top:18%">⚽</span>
+      <span style="left:12%;top:74%;animation-delay:.6s">🥅</span>
+      <span style="left:90%;top:22%;animation-delay:1.1s">⚽</span>
+      <span style="left:84%;top:80%;animation-delay:.3s">🎉</span>
+      <span style="left:48%;top:8%;animation-delay:.9s">🧤</span>
+      <span style="left:30%;top:90%;animation-delay:1.4s">🚩</span>
+    </div>
+    <div class="top">
+      <a href="index.html">← mockups</a>
+      <h1>Grass Field</h1>
+      <span class="spacer"></span>
+      <span class="pill" id="count"></span>
+      <button class="reset" id="reset">Reset</button>
+    </div>
+    <div class="stage"><div class="wall" id="wall"></div></div>
+
+    <script src="engine.js"></script>
+    <script>
+      const store = createStore('wc2026-style-A');
+      const wall = document.getElementById('wall');
+      function side(id) { return PATH[id] ? (PATH[id][0] === '0' ? 'left' : 'right') : 'c'; }
+      function teamBtn(matchId, code, placeholder) {
+        const sel = store.winner(matchId) && store.winner(matchId) === code;
+        if (!code) return `<button class="team" disabled><span class="nm ph">${placeholder}</span></button>`;
+        return `<button class="team ${sel ? 'sel' : ''}" data-m="${matchId}" data-t="${code}">
+          <span class="fl">${flag(code)}</span><span class="nm">${name(code)}</span></button>`;
+      }
+      function matchHtml(m) {
+        const [a, b] = store.teamsOf(m);
+        const pa = m.a.win ? 'Winner ' + m.a.win : 'TBD';
+        const pb = m.b.win ? 'Winner ' + m.b.win : 'TBD';
+        return `<div class="match">
+          <div class="meta"><span>Match ${m.id}</span><span>${m.d}</span></div>
+          ${teamBtn(m.id, a, pa)}${teamBtn(m.id, b, pb)}
+        </div>`;
+      }
+      function colHtml(round, sideName, opts) {
+        const all = inBracketOrder(round).filter((m) => sideName === 'c' || side(m.id) === sideName);
+        const pairs = all.length > 1;
+        const cls = ['col'];
+        if (sideName === 'left') cls.push('side-left');
+        if (sideName === 'right') cls.push('side-right');
+        if (round === 'F') cls.push('final');
+        if (opts.connect) cls.push('connect');
+        if (opts.connect && pairs) cls.push('pairs');
+        const cells = all.map((m) => `<div class="cell">${matchHtml(m)}</div>`).join('');
+        return `<div class="${cls.join(' ')}" style="width:${opts.w}px">
+          <div class="col-title">${ROUND_LABEL[round]}</div><div class="col-body">${cells}</div></div>`;
+      }
+      function colInner(round) {
+        return inBracketOrder(round).map((m) => `<div class="cell">${matchHtml(m)}</div>`).join('');
+      }
+      function render() {
+        const W = { R32: 156, R16: 150, QF: 142, SF: 134, F: 168 };
+        const left = ['R32', 'R16', 'QF', 'SF'].map((r) => colHtml(r, 'left', { connect: true, w: W[r] })).join('');
+        const right = ['SF', 'QF', 'R16', 'R32'].map((r) => colHtml(r, 'right', { connect: true, w: W[r] })).join('');
+        const champ = store.champion();
+        const finalCol = `<div class="col final" style="width:${W.F}px">
+          <div class="col-title">Final</div>
+          <div class="col-body" style="justify-content:center">${colInner('F')}</div>
+          <div class="champ">${champ ? `Champion<span class="big">${name(champ)}</span>` : '&nbsp;'}</div></div>`;
+        wall.innerHTML = left + finalCol + right;
+        document.getElementById('count').textContent = store.count() + '/' + MATCHES.length + ' picked';
+        fit(); bind();
+      }
+      function bind() {
+        wall.querySelectorAll('.team[data-m]').forEach((el) =>
+          el.addEventListener('click', () => { store.pick(+el.dataset.m, el.dataset.t); render(); }));
+      }
+      function fit() {
+        wall.style.transform = 'scale(1)';
+        const stage = document.querySelector('.stage');
+        const s = Math.min(1, (stage.clientWidth - 8) / wall.scrollWidth, (stage.clientHeight - 8) / wall.scrollHeight);
+        wall.style.transform = `scale(${s})`;
+      }
+      document.getElementById('reset').addEventListener('click', () => { store.reset(); render(); });
+      window.addEventListener('resize', fit);
+      render();
+    </script>
+  </body>
+</html>

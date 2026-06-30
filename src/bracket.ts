@@ -33,6 +33,10 @@ export const ROUNDS: { id: RoundId; label: string }[] = [
   { id: 'F', label: 'Final' },
 ]
 
+export const ROUND_LABEL: Record<RoundId, string> = Object.fromEntries(
+  ROUNDS.map((r) => [r.id, r.label]),
+) as Record<RoundId, string>
+
 export const TEAMS: Record<string, Team> = {
   RSA: { id: 'RSA', name: 'South Africa', flag: '🇿🇦' },
   CAN: { id: 'CAN', name: 'Canada', flag: '🇨🇦' },
@@ -138,4 +142,13 @@ export function matchesInBracketOrder(round: RoundId): Match[] {
   return MATCHES.filter((m) => m.round === round).sort((a, b) =>
     ORDER_KEY[a.id] < ORDER_KEY[b.id] ? -1 : 1,
   )
+}
+
+// Which half of the two-sided wall chart a match belongs to. The final has an
+// empty path and sits in the center; everything else is left ('0') or right.
+export type BracketSide = 'left' | 'right' | 'center'
+export function bracketSide(id: number): BracketSide {
+  const key = ORDER_KEY[id]
+  if (!key) return 'center'
+  return key[0] === '0' ? 'left' : 'right'
 }
