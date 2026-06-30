@@ -5,54 +5,30 @@
 // The scheduled GitHub Action runs this and commits the file when it changes.
 
 import { writeFile, mkdir } from 'node:fs/promises'
+import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, join } from 'node:path'
 
 const ESPN =
   'https://site.api.espn.com/apis/site/v2/sports/soccer/fifa.world/scoreboard'
 
-// The 32 knockout teams, by code. ESPN abbreviations match these FIFA codes.
-const CODES = new Set([
-  'RSA', 'CAN', 'BRA', 'JPN', 'GER', 'PAR', 'NED', 'MAR', 'CIV', 'NOR',
-  'FRA', 'SWE', 'MEX', 'ECU', 'ENG', 'COD', 'USA', 'BIH', 'BEL', 'SEN',
-  'ESP', 'AUT', 'POR', 'CRO', 'SUI', 'ALG', 'AUS', 'EGY', 'ARG', 'CPV',
-  'COL', 'GHA',
-])
+// Single source of truth — the same bracket data the app uses.
+const data = JSON.parse(
+  readFileSync(new URL('../src/data/bracket.json', import.meta.url), 'utf8'),
+)
 
-// Fallback name -> code, in case an ESPN abbreviation ever differs.
-const NAME2CODE = {
-  'south africa': 'RSA', canada: 'CAN', brazil: 'BRA', japan: 'JPN',
-  germany: 'GER', paraguay: 'PAR', netherlands: 'NED', morocco: 'MAR',
-  'ivory coast': 'CIV', 'côte d’ivoire': 'CIV', norway: 'NOR', france: 'FRA',
-  sweden: 'SWE', mexico: 'MEX', ecuador: 'ECU', england: 'ENG',
-  'dr congo': 'COD', 'congo dr': 'COD', 'united states': 'USA',
-  'bosnia and herzegovina': 'BIH', belgium: 'BEL', senegal: 'SEN',
-  spain: 'ESP', austria: 'AUT', portugal: 'POR', croatia: 'CRO',
-  switzerland: 'SUI', algeria: 'ALG', australia: 'AUS', egypt: 'EGY',
-  argentina: 'ARG', 'cape verde': 'CPV', colombia: 'COL', ghana: 'GHA',
+// The 32 knockout teams by code (ESPN abbreviations match these FIFA codes).
+const CODES = new Set(Object.keys(data.teams))
+
+// Fallback team-name -> code, derived from the data plus a few ESPN name
+// variants, in case an ESPN abbreviation ever differs.
+const NAME2CODE = { 'côte d’ivoire': 'CIV', 'congo dr': 'COD' }
+for (const [code, [name]] of Object.entries(data.teams)) {
+  NAME2CODE[name.toLowerCase()] = code
 }
 
-// Bracket feeders — mirrors src/bracket.ts. team(code) or winnerOf(matchId).
-const T = (c) => ({ team: c })
-const W = (id) => ({ win: id })
-const MATCHES = [
-  { id: 73, a: T('RSA'), b: T('CAN') }, { id: 74, a: T('GER'), b: T('PAR') },
-  { id: 75, a: T('NED'), b: T('MAR') }, { id: 76, a: T('BRA'), b: T('JPN') },
-  { id: 77, a: T('FRA'), b: T('SWE') }, { id: 78, a: T('CIV'), b: T('NOR') },
-  { id: 79, a: T('MEX'), b: T('ECU') }, { id: 80, a: T('ENG'), b: T('COD') },
-  { id: 81, a: T('USA'), b: T('BIH') }, { id: 82, a: T('BEL'), b: T('SEN') },
-  { id: 83, a: T('POR'), b: T('CRO') }, { id: 84, a: T('ESP'), b: T('AUT') },
-  { id: 85, a: T('SUI'), b: T('ALG') }, { id: 86, a: T('ARG'), b: T('CPV') },
-  { id: 87, a: T('COL'), b: T('GHA') }, { id: 88, a: T('AUS'), b: T('EGY') },
-  { id: 89, a: W(74), b: W(77) }, { id: 90, a: W(73), b: W(75) },
-  { id: 91, a: W(76), b: W(78) }, { id: 92, a: W(79), b: W(80) },
-  { id: 93, a: W(83), b: W(84) }, { id: 94, a: W(81), b: W(82) },
-  { id: 95, a: W(86), b: W(88) }, { id: 96, a: W(85), b: W(87) },
-  { id: 97, a: W(89), b: W(90) }, { id: 98, a: W(93), b: W(94) },
-  { id: 99, a: W(91), b: W(92) }, { id: 100, a: W(95), b: W(96) },
-  { id: 101, a: W(97), b: W(98) }, { id: 102, a: W(99), b: W(100) },
-  { id: 104, a: W(101), b: W(102) },
-]
+// Bracket feeders come straight from the shared data ({ team } or { win }).
+const MATCHES = data.matches
 const BY_ID = Object.fromEntries(MATCHES.map((m) => [m.id, m]))
 
 function codeOf(competitor) {
