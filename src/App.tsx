@@ -8,6 +8,7 @@ import {
   type ReactNode,
 } from 'react'
 import { toPng } from 'html-to-image'
+import QRCode from 'qrcode'
 import {
   MATCHES,
   ROUNDS,
@@ -507,6 +508,25 @@ function ShareModal({
   const [box, setBox] = useState({ scale: 1, h: 0 })
   const [busy, setBusy] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
+  const [qr, setQr] = useState<string>('')
+
+  const shareUrl = buildShareUrl(picks)
+
+  useEffect(() => {
+    let active = true
+    QRCode.toDataURL(shareUrl, {
+      width: 240,
+      margin: 1,
+      color: { dark: '#0a3315ff', light: '#fffef6ff' },
+    })
+      .then((url) => {
+        if (active) setQr(url)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [shareUrl])
 
   useLayoutEffect(() => {
     const pv = previewRef.current
@@ -514,7 +534,7 @@ function ShareModal({
     if (!pv || !card) return
     const scale = Math.min(1, pv.clientWidth / card.offsetWidth)
     setBox({ scale, h: card.offsetHeight * scale })
-  }, [])
+  }, [qr])
 
   const download = useCallback(async () => {
     if (!cardRef.current) return
@@ -536,13 +556,13 @@ function ShareModal({
 
   const copyLink = useCallback(async () => {
     try {
-      await navigator.clipboard.writeText(buildShareUrl(picks))
+      await navigator.clipboard.writeText(shareUrl)
       setLinkCopied(true)
       setTimeout(() => setLinkCopied(false), 1800)
     } catch {
       /* clipboard may be blocked; ignore */
     }
-  }, [picks])
+  }, [shareUrl])
 
   return (
     <div
@@ -566,7 +586,16 @@ function ShareModal({
               picks={picks}
               championId={championId}
               complete={complete}
+              qr={qr}
             />
+          </div>
+        </div>
+
+        <div className="share-qr">
+          {qr && <img src={qr} alt="QR code linking to this bracket" width={120} height={120} />}
+          <div className="share-qr-text">
+            <strong>Scan to open on your phone</strong>
+            <span>Anyone who scans this gets your exact bracket to try.</span>
           </div>
         </div>
 
@@ -585,8 +614,8 @@ function ShareModal({
 
 const ShareCard = forwardRef<
   HTMLDivElement,
-  { picks: Picks; championId: string | undefined; complete: boolean }
->(function ShareCard({ picks, championId, complete }, ref) {
+  { picks: Picks; championId: string | undefined; complete: boolean; qr: string }
+>(function ShareCard({ picks, championId, complete, qr }, ref) {
   return (
     <div className="share-card" ref={ref}>
       <div className="share-card-head">
@@ -598,6 +627,10 @@ const ShareCard = forwardRef<
         )}
       </div>
       <Wall picks={picks} onPick={noop} championId={championId} complete={complete} />
+      <div className="sc-footer">
+        {qr && <img className="sc-qr" src={qr} alt="" width={84} height={84} />}
+        <span className="sc-footer-text">Scan to fill out your own bracket</span>
+      </div>
     </div>
   )
 })

@@ -1,5 +1,9 @@
 import { prune, type Picks } from './picks'
 
+// Public URL where the app is hosted (GitHub Pages). Share links and QR codes
+// point here so they work on any phone, even when generated from localhost.
+export const APP_URL = 'https://eleanorjboyd.github.io/world-cup-bracket/'
+
 // Encode picks as a compact, URL-safe string.
 export function encodePicks(picks: Picks): string {
   const json = JSON.stringify(picks)
@@ -27,9 +31,7 @@ export function decodePicks(encoded: string): Picks {
 }
 
 export function buildShareUrl(picks: Picks): string {
-  const url = new URL(window.location.href)
-  url.hash = 'b=' + encodePicks(picks)
-  return url.toString()
+  return `${APP_URL}#b=${encodePicks(picks)}`
 }
 
 // Read picks from the current URL hash (e.g. #b=...), if present.

@@ -233,6 +233,57 @@ h1 {
   white-space: nowrap;
 }
 
+.sc-footer {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+  padding-top: 12px;
+  border-top: 2px dashed var(--chalk);
+}
+.sc-qr {
+  border-radius: 8px;
+  border: 2px solid var(--chalk);
+  background: #fffef6;
+}
+.sc-footer-text {
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 600;
+  color: #eafff0;
+  font-size: 14px;
+}
+
+.share-qr {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-top: 14px;
+  padding: 12px;
+  background: rgba(0, 0, 0, 0.18);
+  border-radius: 12px;
+}
+.share-qr img {
+  border-radius: 8px;
+  border: 3px solid #fff;
+  background: #fffef6;
+  flex: 0 0 auto;
+}
+.share-qr-text {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  color: #eafff0;
+}
+.share-qr-text strong {
+  font-family: 'Luckiest Guy', cursive;
+  font-weight: 400;
+  letter-spacing: 0.5px;
+}
+.share-qr-text span {
+  font-size: 13px;
+  opacity: 0.9;
+}
+
 .stage {
   position: relative;
   z-index: 1;
