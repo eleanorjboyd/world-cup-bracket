@@ -80,6 +80,75 @@ const SHORT_LABEL: Record<RoundId, string> = {
   F: 'Final',
 }
 
+// ---------- Shared UI helpers ----------
+
+// The kitschy floating field emoji, used on both the home screen and the app.
+function Decor() {
+  return (
+    <div className="decor" aria-hidden>
+      {DECOR.map((d, i) => (
+        <span key={i} style={{ left: d.left, top: d.top, animationDelay: d.d }}>
+          {d.e}
+        </span>
+      ))}
+    </div>
+  )
+}
+
+// A QR-code data URL for `url`, rendered in the app's grass palette.
+function useQrCode(url: string, size: number): string {
+  const [qr, setQr] = useState('')
+  useEffect(() => {
+    let active = true
+    QRCode.toDataURL(url, {
+      width: size,
+      margin: 1,
+      color: { dark: '#0a3315ff', light: '#fffef6ff' },
+    })
+      .then((dataUrl) => {
+        if (active) setQr(dataUrl)
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [url, size])
+  return qr
+}
+
+// Overlay modal with a titled header and a close button. Clicking the backdrop
+// or the ✕ closes it.
+function Modal({
+  title,
+  onClose,
+  panelClassName = 'share-panel',
+  children,
+}: {
+  title: ReactNode
+  onClose: () => void
+  panelClassName?: string
+  children: ReactNode
+}) {
+  return (
+    <div
+      className="overlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div className={panelClassName}>
+        <div className="share-panel-top">
+          <h2>{title}</h2>
+          <button className="close" onClick={onClose} type="button">
+            ✕
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  )
+}
+
 export default function App() {
   const [picks, setPicks] = useState<Picks>(loadPicks)
   const [results, setResults] = useState<Record<number, MatchResult>>(RESULTS)
@@ -158,13 +227,7 @@ export default function App() {
 
   return (
     <div className={`app ${isMobile ? 'is-mobile' : 'is-desktop'}`}>
-      <div className="decor" aria-hidden>
-        {DECOR.map((d, i) => (
-          <span key={i} style={{ left: d.left, top: d.top, animationDelay: d.d }}>
-            {d.e}
-          </span>
-        ))}
-      </div>
+      <Decor />
 
       <header className="topbar">
         <h1>World Cup 2026 — Pick&apos;em</h1>
@@ -663,25 +726,9 @@ function ShareModal({
   const [box, setBox] = useState({ scale: 1, h: 0 })
   const [busy, setBusy] = useState(false)
   const [linkCopied, setLinkCopied] = useState(false)
-  const [qr, setQr] = useState<string>('')
 
   const shareUrl = buildShareUrl(picks)
-
-  useEffect(() => {
-    let active = true
-    QRCode.toDataURL(shareUrl, {
-      width: 240,
-      margin: 1,
-      color: { dark: '#0a3315ff', light: '#fffef6ff' },
-    })
-      .then((url) => {
-        if (active) setQr(url)
-      })
-      .catch(() => {})
-    return () => {
-      active = false
-    }
-  }, [shareUrl])
+  const qr = useQrCode(shareUrl, 240)
 
   useLayoutEffect(() => {
     const pv = previewRef.current
@@ -720,51 +767,37 @@ function ShareModal({
   }, [shareUrl])
 
   return (
-    <div
-      className="overlay"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
-      <div className="share-panel">
-        <div className="share-panel-top">
-          <h2>Share your bracket 🏆</h2>
-          <button className="close" onClick={onClose} type="button">
-            ✕
-          </button>
-        </div>
-
-        <div className="share-preview" ref={previewRef} style={{ height: box.h || undefined }}>
-          <div className="share-scaler" style={{ transform: `scale(${box.scale})` }}>
-            <ShareCard
-              ref={cardRef}
-              picks={picks}
-              results={results}
-              championId={championId}
-              complete={complete}
-              qr={qr}
-            />
-          </div>
-        </div>
-
-        <div className="share-qr">
-          {qr && <img src={qr} alt="QR code linking to this bracket" width={120} height={120} />}
-          <div className="share-qr-text">
-            <strong>Scan to open on your phone</strong>
-            <span>Anyone who scans this gets your exact bracket to try.</span>
-          </div>
-        </div>
-
-        <div className="share-actions">
-          <button className="snav primary" onClick={download} disabled={busy} type="button">
-            {busy ? 'Rendering…' : '⬇ Download image'}
-          </button>
-          <button className="snav" onClick={copyLink} type="button">
-            {linkCopied ? 'Link copied! ✓' : '🔗 Copy share link'}
-          </button>
+    <Modal title="Share your bracket 🏆" onClose={onClose}>
+      <div className="share-preview" ref={previewRef} style={{ height: box.h || undefined }}>
+        <div className="share-scaler" style={{ transform: `scale(${box.scale})` }}>
+          <ShareCard
+            ref={cardRef}
+            picks={picks}
+            results={results}
+            championId={championId}
+            complete={complete}
+            qr={qr}
+          />
         </div>
       </div>
-    </div>
+
+      <div className="share-qr">
+        {qr && <img src={qr} alt="QR code linking to this bracket" width={120} height={120} />}
+        <div className="share-qr-text">
+          <strong>Scan to open on your phone</strong>
+          <span>Anyone who scans this gets your exact bracket to try.</span>
+        </div>
+      </div>
+
+      <div className="share-actions">
+        <button className="snav primary" onClick={download} disabled={busy} type="button">
+          {busy ? 'Rendering…' : '⬇ Download image'}
+        </button>
+        <button className="snav" onClick={copyLink} type="button">
+          {linkCopied ? 'Link copied! ✓' : '🔗 Copy share link'}
+        </button>
+      </div>
+    </Modal>
   )
 }
 
@@ -858,34 +891,20 @@ function ScheduleModal({
   }
 
   return (
-    <div
-      className="overlay"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
-    >
-      <div className="schedule-panel">
-        <div className="share-panel-top">
-          <h2>📅 Knockout schedule</h2>
-          <button className="close" onClick={onClose} type="button">
-            ✕
-          </button>
+    <Modal title="📅 Knockout schedule" onClose={onClose} panelClassName="schedule-panel">
+      {groups.length === 0 && (
+        <p className="sched-empty">No matches in the current window.</p>
+      )}
+
+      {groups.map((g) => (
+        <div className="sched-day" key={g.key}>
+          <div className="sched-day-label">{g.label}</div>
+          {g.items.map((m) => (
+            <ScheduleRow key={m.id} m={m} />
+          ))}
         </div>
-
-        {groups.length === 0 && (
-          <p className="sched-empty">No matches in the current window.</p>
-        )}
-
-        {groups.map((g) => (
-          <div className="sched-day" key={g.key}>
-            <div className="sched-day-label">{g.label}</div>
-            {g.items.map((m) => (
-              <ScheduleRow key={m.id} m={m} />
-            ))}
-          </div>
-        ))}
-      </div>
-    </div>
+      ))}
+    </Modal>
   )
 }
 
@@ -932,37 +951,11 @@ function ScheduleRow({ m }: { m: LiveMatch }) {
 
 // ---------- Home (landing) view ----------
 
-function useBlankBracketQr(size = 320): string {
-  const [qr, setQr] = useState('')
-  useEffect(() => {
-    let active = true
-    QRCode.toDataURL(APP_URL, {
-      width: size,
-      margin: 1,
-      color: { dark: '#0a3315ff', light: '#fffef6ff' },
-    })
-      .then((url) => {
-        if (active) setQr(url)
-      })
-      .catch(() => {})
-    return () => {
-      active = false
-    }
-  }, [size])
-  return qr
-}
-
 function HomeView({ onStart }: { onStart: () => void }) {
-  const qr = useBlankBracketQr(340)
+  const qr = useQrCode(APP_URL, 340)
   return (
     <div className="home">
-      <div className="decor" aria-hidden>
-        {DECOR.map((d, i) => (
-          <span key={i} style={{ left: d.left, top: d.top, animationDelay: d.d }}>
-            {d.e}
-          </span>
-        ))}
-      </div>
+      <Decor />
 
       <div className="home-card">
         <div className="home-kicker">⚽ Welcome to ⚽</div>
@@ -1001,7 +994,7 @@ function HomeView({ onStart }: { onStart: () => void }) {
 // ---------- Invite modal (shows the blank-bracket QR anytime) ----------
 
 function InviteModal({ onClose }: { onClose: () => void }) {
-  const qr = useBlankBracketQr(360)
+  const qr = useQrCode(APP_URL, 360)
   const [linkCopied, setLinkCopied] = useState(false)
 
   const copyLink = useCallback(async () => {
@@ -1015,45 +1008,35 @@ function InviteModal({ onClose }: { onClose: () => void }) {
   }, [])
 
   return (
-    <div
-      className="overlay"
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose()
-      }}
+    <Modal
+      title="Make your own bracket 🆕"
+      onClose={onClose}
+      panelClassName="share-panel invite-panel"
     >
-      <div className="share-panel invite-panel">
-        <div className="share-panel-top">
-          <h2>Make your own bracket 🆕</h2>
-          <button className="close" onClick={onClose} type="button">
-            ✕
-          </button>
-        </div>
-
-        <div className="invite-body">
-          {qr ? (
-            <img
-              className="invite-qr"
-              src={qr}
-              alt="QR code linking to a blank bracket"
-              width={280}
-              height={280}
-            />
-          ) : (
-            <div className="invite-qr placeholder" aria-hidden />
-          )}
-          <p className="invite-help">
-            Send this to friends so everyone makes their own bracket. Each person
-            gets a fresh, blank bracket and their picks stay on their phone.
-          </p>
-          <code className="invite-url">{APP_URL}</code>
-        </div>
-
-        <div className="share-actions">
-          <button className="snav primary" onClick={copyLink} type="button">
-            {linkCopied ? 'Link copied! ✓' : '🔗 Copy link'}
-          </button>
-        </div>
+      <div className="invite-body">
+        {qr ? (
+          <img
+            className="invite-qr"
+            src={qr}
+            alt="QR code linking to a blank bracket"
+            width={280}
+            height={280}
+          />
+        ) : (
+          <div className="invite-qr placeholder" aria-hidden />
+        )}
+        <p className="invite-help">
+          Send this to friends so everyone makes their own bracket. Each person
+          gets a fresh, blank bracket and their picks stay on their phone.
+        </p>
+        <code className="invite-url">{APP_URL}</code>
       </div>
-    </div>
+
+      <div className="share-actions">
+        <button className="snav primary" onClick={copyLink} type="button">
+          {linkCopied ? 'Link copied! ✓' : '🔗 Copy link'}
+        </button>
+      </div>
+    </Modal>
   )
 }
