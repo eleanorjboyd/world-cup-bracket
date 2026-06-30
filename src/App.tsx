@@ -1,4 +1,5 @@
 import {
+  forwardRef,
   useCallback,
   useEffect,
   useLayoutEffect,
@@ -6,6 +7,7 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import { toPng } from 'html-to-image'
 import {
   MATCHES,
   ROUNDS,
@@ -24,10 +26,13 @@ import {
   teamsForMatch,
   type Picks,
 } from './picks'
+import { buildShareUrl, picksFromHash } from './share'
 
 const STORAGE_KEY = 'wc2026-bracket-picks-v1'
 
 function loadPicks(): Picks {
+  const shared = picksFromHash()
+  if (shared) return shared
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     return raw ? (JSON.parse(raw) as Picks) : {}
@@ -71,6 +76,7 @@ const SHORT_LABEL: Record<RoundId, string> = {
 
 export default function App() {
   const [picks, setPicks] = useState<Picks>(loadPicks)
+  const [shareOpen, setShareOpen] = useState(false)
   const isMobile = useIsMobile()
 
   useEffect(() => {
@@ -103,6 +109,13 @@ export default function App() {
             {pickedCount}/{MATCHES.length} picked
           </span>
           <button
+            className={`share-btn ${complete ? 'ready' : ''}`}
+            onClick={() => setShareOpen(true)}
+            disabled={pickedCount === 0}
+          >
+            {complete ? '🎉 Share' : 'Share'}
+          </button>
+          <button
             className="reset"
             onClick={() => setPicks({})}
             disabled={pickedCount === 0}
@@ -111,6 +124,15 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      {shareOpen && (
+        <ShareModal
+          picks={picks}
+          championId={championId}
+          complete={complete}
+          onClose={() => setShareOpen(false)}
+        />
+      )}
 
       {isMobile ? (
         <StepperView picks={picks} onPick={pick} championId={championId} complete={complete} />
@@ -142,40 +164,46 @@ interface ViewProps {
   complete: boolean
 }
 
-function WallView({ picks, onPick, championId, complete }: ViewProps) {
+function WallView(props: ViewProps) {
   return (
     <FitStage>
-      <div className="wall">
-        {LEFT_ROUNDS.map((r) => (
-          <RoundColumn key={`L-${r}`} round={r} side="left" picks={picks} onPick={onPick} />
-        ))}
-
-        <section className="col final" style={{ width: COL_WIDTH.F }}>
-          <h2 className="col-title">Final</h2>
-          <div className="col-body" style={{ justifyContent: 'center' }}>
-            {matchesInBracketOrder('F').map((m) => (
-              <div className="cell" key={m.id}>
-                <MatchCard match={m} picks={picks} onPick={onPick} />
-              </div>
-            ))}
-          </div>
-          <div className="champ">
-            {championId ? (
-              <>
-                {complete ? 'Champion' : 'Projected champion'}
-                <span className="big">{TEAMS[championId].name}</span>
-              </>
-            ) : (
-              '\u00a0'
-            )}
-          </div>
-        </section>
-
-        {RIGHT_ROUNDS.map((r) => (
-          <RoundColumn key={`R-${r}`} round={r} side="right" picks={picks} onPick={onPick} />
-        ))}
-      </div>
+      <Wall {...props} />
     </FitStage>
+  )
+}
+
+function Wall({ picks, onPick, championId, complete }: ViewProps) {
+  return (
+    <div className="wall">
+      {LEFT_ROUNDS.map((r) => (
+        <RoundColumn key={`L-${r}`} round={r} side="left" picks={picks} onPick={onPick} />
+      ))}
+
+      <section className="col final" style={{ width: COL_WIDTH.F }}>
+        <h2 className="col-title">Final</h2>
+        <div className="col-body" style={{ justifyContent: 'center' }}>
+          {matchesInBracketOrder('F').map((m) => (
+            <div className="cell" key={m.id}>
+              <MatchCard match={m} picks={picks} onPick={onPick} />
+            </div>
+          ))}
+        </div>
+        <div className="champ">
+          {championId ? (
+            <>
+              {complete ? 'Champion' : 'Projected champion'}
+              <span className="big">{TEAMS[championId].name}</span>
+            </>
+          ) : (
+            '\u00a0'
+          )}
+        </div>
+      </section>
+
+      {RIGHT_ROUNDS.map((r) => (
+        <RoundColumn key={`R-${r}`} round={r} side="right" picks={picks} onPick={onPick} />
+      ))}
+    </div>
   )
 }
 
@@ -460,4 +488,119 @@ function StepOption({
     </button>
   )
 }
+
+// ---------- Share ----------
+
+function ShareModal({
+  picks,
+  championId,
+  complete,
+  onClose,
+}: {
+  picks: Picks
+  championId: string | undefined
+  complete: boolean
+  onClose: () => void
+}) {
+  const cardRef = useRef<HTMLDivElement>(null)
+  const previewRef = useRef<HTMLDivElement>(null)
+  const [box, setBox] = useState({ scale: 1, h: 0 })
+  const [busy, setBusy] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
+
+  useLayoutEffect(() => {
+    const pv = previewRef.current
+    const card = cardRef.current
+    if (!pv || !card) return
+    const scale = Math.min(1, pv.clientWidth / card.offsetWidth)
+    setBox({ scale, h: card.offsetHeight * scale })
+  }, [])
+
+  const download = useCallback(async () => {
+    if (!cardRef.current) return
+    setBusy(true)
+    try {
+      const dataUrl = await toPng(cardRef.current, {
+        pixelRatio: 2,
+        cacheBust: true,
+        backgroundColor: '#2c9139',
+      })
+      const a = document.createElement('a')
+      a.href = dataUrl
+      a.download = 'my-world-cup-2026-bracket.png'
+      a.click()
+    } finally {
+      setBusy(false)
+    }
+  }, [])
+
+  const copyLink = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(buildShareUrl(picks))
+      setLinkCopied(true)
+      setTimeout(() => setLinkCopied(false), 1800)
+    } catch {
+      /* clipboard may be blocked; ignore */
+    }
+  }, [picks])
+
+  return (
+    <div
+      className="overlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div className="share-panel">
+        <div className="share-panel-top">
+          <h2>{complete ? 'Your bracket is set! 🏆' : 'Share your bracket'}</h2>
+          <button className="close" onClick={onClose} type="button">
+            ✕
+          </button>
+        </div>
+
+        <div className="share-preview" ref={previewRef} style={{ height: box.h || undefined }}>
+          <div className="share-scaler" style={{ transform: `scale(${box.scale})` }}>
+            <ShareCard
+              ref={cardRef}
+              picks={picks}
+              championId={championId}
+              complete={complete}
+            />
+          </div>
+        </div>
+
+        <div className="share-actions">
+          <button className="snav primary" onClick={download} disabled={busy} type="button">
+            {busy ? 'Rendering…' : '⬇ Download image'}
+          </button>
+          <button className="snav" onClick={copyLink} type="button">
+            {linkCopied ? 'Link copied! ✓' : '🔗 Copy share link'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+const ShareCard = forwardRef<
+  HTMLDivElement,
+  { picks: Picks; championId: string | undefined; complete: boolean }
+>(function ShareCard({ picks, championId, complete }, ref) {
+  return (
+    <div className="share-card" ref={ref}>
+      <div className="share-card-head">
+        <span className="sc-title">⚽ My World Cup 2026 Bracket</span>
+        {championId && (
+          <span className="sc-champ">
+            🏆 {TEAMS[championId].flag} {TEAMS[championId].name}
+          </span>
+        )}
+      </div>
+      <Wall picks={picks} onPick={noop} championId={championId} complete={complete} />
+    </div>
+  )
+})
+
+function noop() {}
 
