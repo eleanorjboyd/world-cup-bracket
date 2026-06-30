@@ -16,9 +16,9 @@ import {
   ROUND_LABEL,
   TEAMS,
   bracketSide,
-  isFinal,
   matchesInBracketOrder,
   type Match,
+  type MatchResult,
   type RoundId,
   type Slot,
 } from './bracket'
@@ -36,12 +36,12 @@ const STORAGE_KEY = 'wc2026-bracket-picks-v1'
 
 function loadPicks(): Picks {
   const shared = picksFromHash()
-  if (shared) return applyResults(shared)
+  if (shared) return applyResults(shared, RESULTS)
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    return applyResults(raw ? (JSON.parse(raw) as Picks) : {})
+    return applyResults(raw ? (JSON.parse(raw) as Picks) : {}, RESULTS)
   } catch {
-    return applyResults({})
+    return applyResults({}, RESULTS)
   }
 }
 
@@ -80,6 +80,7 @@ const SHORT_LABEL: Record<RoundId, string> = {
 
 export default function App() {
   const [picks, setPicks] = useState<Picks>(loadPicks)
+  const [results, setResults] = useState<Record<number, MatchResult>>(RESULTS)
   const [shareOpen, setShareOpen] = useState(false)
   const isMobile = useIsMobile()
 
@@ -87,15 +88,34 @@ export default function App() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(picks))
   }, [picks])
 
-  const pick = useCallback((matchId: number, teamId: string | undefined) => {
-    if (!teamId || isFinal(matchId)) return
-    setPicks((prev) => applyResults(setPick(prev, matchId, teamId)))
+  // Pull live results (written by the scheduled ESPN job) and lock them in.
+  useEffect(() => {
+    fetch(`${import.meta.env.BASE_URL}results.json`, { cache: 'no-store' })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: Record<string, MatchResult> | null) => {
+        if (!data) return
+        const merged: Record<number, MatchResult> = { ...RESULTS }
+        for (const [id, r] of Object.entries(data)) {
+          if (r && typeof r.winner === 'string') merged[Number(id)] = r
+        }
+        setResults(merged)
+        setPicks((prev) => applyResults(prev, merged))
+      })
+      .catch(() => {})
   }, [])
+
+  const pick = useCallback(
+    (matchId: number, teamId: string | undefined) => {
+      if (!teamId || results[matchId]) return
+      setPicks((prev) => applyResults(setPick(prev, matchId, teamId), results))
+    },
+    [results],
+  )
 
   const championId = champion(picks)
   const complete = isComplete(picks)
   const pickedCount = Object.keys(picks).length
-  const lockedCount = Object.keys(RESULTS).length
+  const lockedCount = Object.keys(results).length
 
   return (
     <div className={`app ${isMobile ? 'is-mobile' : 'is-desktop'}`}>
@@ -122,7 +142,7 @@ export default function App() {
           </button>
           <button
             className="reset"
-            onClick={() => setPicks(applyResults({}))}
+            onClick={() => setPicks(applyResults({}, results))}
             disabled={pickedCount <= lockedCount}
           >
             Reset
@@ -133,6 +153,7 @@ export default function App() {
       {shareOpen && (
         <ShareModal
           picks={picks}
+          results={results}
           championId={championId}
           complete={complete}
           onClose={() => setShareOpen(false)}
@@ -140,9 +161,21 @@ export default function App() {
       )}
 
       {isMobile ? (
-        <StepperView picks={picks} onPick={pick} championId={championId} complete={complete} />
+        <StepperView
+          picks={picks}
+          results={results}
+          onPick={pick}
+          championId={championId}
+          complete={complete}
+        />
       ) : (
-        <WallView picks={picks} onPick={pick} championId={championId} complete={complete} />
+        <WallView
+          picks={picks}
+          results={results}
+          onPick={pick}
+          championId={championId}
+          complete={complete}
+        />
       )}
     </div>
   )
@@ -164,6 +197,7 @@ function useIsMobile() {
 
 interface ViewProps {
   picks: Picks
+  results: Record<number, MatchResult>
   onPick: (matchId: number, teamId: string | undefined) => void
   championId: string | undefined
   complete: boolean
@@ -177,11 +211,11 @@ function WallView(props: ViewProps) {
   )
 }
 
-function Wall({ picks, onPick, championId, complete }: ViewProps) {
+function Wall({ picks, results, onPick, championId, complete }: ViewProps) {
   return (
     <div className="wall">
       {LEFT_ROUNDS.map((r) => (
-        <RoundColumn key={`L-${r}`} round={r} side="left" picks={picks} onPick={onPick} />
+        <RoundColumn key={`L-${r}`} round={r} side="left" picks={picks} results={results} onPick={onPick} />
       ))}
 
       <section className="col final" style={{ width: COL_WIDTH.F }}>
@@ -189,7 +223,7 @@ function Wall({ picks, onPick, championId, complete }: ViewProps) {
         <div className="col-body" style={{ justifyContent: 'center' }}>
           {matchesInBracketOrder('F').map((m) => (
             <div className="cell" key={m.id}>
-              <MatchCard match={m} picks={picks} onPick={onPick} />
+              <MatchCard match={m} picks={picks} results={results} onPick={onPick} />
             </div>
           ))}
         </div>
@@ -206,7 +240,7 @@ function Wall({ picks, onPick, championId, complete }: ViewProps) {
       </section>
 
       {RIGHT_ROUNDS.map((r) => (
-        <RoundColumn key={`R-${r}`} round={r} side="right" picks={picks} onPick={onPick} />
+        <RoundColumn key={`R-${r}`} round={r} side="right" picks={picks} results={results} onPick={onPick} />
       ))}
     </div>
   )
@@ -249,11 +283,13 @@ function RoundColumn({
   round,
   side,
   picks,
+  results,
   onPick,
 }: {
   round: RoundId
   side: 'left' | 'right'
   picks: Picks
+  results: Record<number, MatchResult>
   onPick: (matchId: number, teamId: string | undefined) => void
 }) {
   const matches = matchesInBracketOrder(round).filter(
@@ -268,7 +304,7 @@ function RoundColumn({
       <div className="col-body">
         {matches.map((m) => (
           <div className="cell" key={m.id}>
-            <MatchCard match={m} picks={picks} onPick={onPick} />
+            <MatchCard match={m} picks={picks} results={results} onPick={onPick} />
           </div>
         ))}
       </div>
@@ -279,16 +315,18 @@ function RoundColumn({
 function MatchCard({
   match,
   picks,
+  results,
   onPick,
 }: {
   match: Match
   picks: Picks
+  results: Record<number, MatchResult>
   onPick: (matchId: number, teamId: string | undefined) => void
 }) {
   const { a, b } = teamsForMatch(match, picks)
   const winnerId = picks[match.id]
-  const final = isFinal(match.id)
-  const result = RESULTS[match.id]
+  const result = results[match.id]
+  const final = !!result
 
   return (
     <div className={`match ${final ? 'is-final' : ''}`}>
@@ -362,7 +400,7 @@ function firstIncompleteRound(picks: Picks): number {
   return ids.length - 1
 }
 
-function StepperView({ picks, onPick, championId, complete }: ViewProps) {
+function StepperView({ picks, results, onPick, championId, complete }: ViewProps) {
   const roundIds = ROUNDS.map((r) => r.id)
   const [step, setStep] = useState(() => firstIncompleteRound(picks))
   const roundId = roundIds[step]
@@ -409,7 +447,7 @@ function StepperView({ picks, onPick, championId, complete }: ViewProps) {
           </div>
         ) : (
           matches.map((m) => (
-            <StepMatch key={m.id} match={m} picks={picks} onPick={onPick} />
+            <StepMatch key={m.id} match={m} picks={picks} results={results} onPick={onPick} />
           ))
         )}
       </div>
@@ -439,16 +477,18 @@ function StepperView({ picks, onPick, championId, complete }: ViewProps) {
 function StepMatch({
   match,
   picks,
+  results,
   onPick,
 }: {
   match: Match
   picks: Picks
+  results: Record<number, MatchResult>
   onPick: (matchId: number, teamId: string | undefined) => void
 }) {
   const { a, b } = teamsForMatch(match, picks)
   const winnerId = picks[match.id]
-  const final = isFinal(match.id)
-  const result = RESULTS[match.id]
+  const result = results[match.id]
+  const final = !!result
   return (
     <div className={`step-match ${final ? 'is-final' : ''}`}>
       <div className="sm-meta">
@@ -517,11 +557,13 @@ function StepOption({
 
 function ShareModal({
   picks,
+  results,
   championId,
   complete,
   onClose,
 }: {
   picks: Picks
+  results: Record<number, MatchResult>
   championId: string | undefined
   complete: boolean
   onClose: () => void
@@ -607,6 +649,7 @@ function ShareModal({
             <ShareCard
               ref={cardRef}
               picks={picks}
+              results={results}
               championId={championId}
               complete={complete}
               qr={qr}
@@ -637,8 +680,14 @@ function ShareModal({
 
 const ShareCard = forwardRef<
   HTMLDivElement,
-  { picks: Picks; championId: string | undefined; complete: boolean; qr: string }
->(function ShareCard({ picks, championId, complete, qr }, ref) {
+  {
+    picks: Picks
+    results: Record<number, MatchResult>
+    championId: string | undefined
+    complete: boolean
+    qr: string
+  }
+>(function ShareCard({ picks, results, championId, complete, qr }, ref) {
   return (
     <div className="share-card" ref={ref}>
       <div className="share-card-head">
@@ -649,7 +698,7 @@ const ShareCard = forwardRef<
           </span>
         )}
       </div>
-      <Wall picks={picks} onPick={noop} championId={championId} complete={complete} />
+      <Wall picks={picks} results={results} onPick={noop} championId={championId} complete={complete} />
       <div className="sc-footer">
         {qr && <img className="sc-qr" src={qr} alt="" width={84} height={84} />}
         <span className="sc-footer-text">Scan to fill out your own bracket</span>
