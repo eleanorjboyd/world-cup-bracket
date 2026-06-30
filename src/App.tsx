@@ -31,6 +31,7 @@ import {
   type Picks,
 } from './picks'
 import { buildShareUrl, picksFromHash } from './share'
+import { fetchLive, flagFor, type LiveMatch } from './live'
 
 const STORAGE_KEY = 'wc2026-bracket-picks-v1'
 
@@ -82,7 +83,10 @@ export default function App() {
   const [picks, setPicks] = useState<Picks>(loadPicks)
   const [results, setResults] = useState<Record<number, MatchResult>>(RESULTS)
   const [shareOpen, setShareOpen] = useState(false)
+  const [scheduleOpen, setScheduleOpen] = useState(false)
   const isMobile = useIsMobile()
+  const live = useLive()
+  const liveGames = live.filter((m) => m.state === 'in')
 
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(picks))
@@ -134,6 +138,13 @@ export default function App() {
             {pickedCount}/{MATCHES.length} picked
           </span>
           <button
+            className={`sched-btn ${liveGames.length ? 'has-live' : ''}`}
+            onClick={() => setScheduleOpen(true)}
+          >
+            {liveGames.length > 0 && <span className="live-dot" />}
+            📅 Schedule
+          </button>
+          <button
             className={`share-btn ${complete ? 'ready' : ''}`}
             onClick={() => setShareOpen(true)}
             disabled={pickedCount === 0}
@@ -149,6 +160,14 @@ export default function App() {
           </button>
         </div>
       </header>
+
+      {liveGames.length > 0 && (
+        <LiveBanner games={liveGames} onOpen={() => setScheduleOpen(true)} />
+      )}
+
+      {scheduleOpen && (
+        <ScheduleModal matches={live} onClose={() => setScheduleOpen(false)} />
+      )}
 
       {shareOpen && (
         <ShareModal
@@ -193,6 +212,27 @@ function useIsMobile() {
     return () => mq.removeEventListener('change', handler)
   }, [])
   return isMobile
+}
+
+// Polls ESPN for live + upcoming matches and refreshes every 60s.
+function useLive(intervalMs = 60000) {
+  const [matches, setMatches] = useState<LiveMatch[]>([])
+  useEffect(() => {
+    let active = true
+    const tick = () =>
+      fetchLive()
+        .then((m) => {
+          if (active) setMatches(m)
+        })
+        .catch(() => {})
+    tick()
+    const id = setInterval(tick, intervalMs)
+    return () => {
+      active = false
+      clearInterval(id)
+    }
+  }, [intervalMs])
+  return matches
 }
 
 interface ViewProps {
@@ -708,4 +748,130 @@ const ShareCard = forwardRef<
 })
 
 function noop() {}
+
+// ---------- Live banner + schedule ----------
+
+function scoreLine(m: LiveMatch) {
+  return `${flagFor(m.aCode)} ${m.aName} ${m.aScore}–${m.bScore} ${m.bName} ${flagFor(
+    m.bCode,
+  )}`
+}
+
+function LiveBanner({
+  games,
+  onOpen,
+}: {
+  games: LiveMatch[]
+  onOpen: () => void
+}) {
+  return (
+    <button className="live-banner" onClick={onOpen} type="button">
+      <span className="live-dot big" />
+      <span className="live-label">LIVE</span>
+      <span className="live-games">
+        {games.slice(0, 2).map((m) => (
+          <span className="live-game" key={m.id}>
+            {scoreLine(m)} <em>{m.detail}</em>
+          </span>
+        ))}
+        {games.length > 2 && <span className="live-more">+{games.length - 2} more</span>}
+      </span>
+    </button>
+  )
+}
+
+function ScheduleModal({
+  matches,
+  onClose,
+}: {
+  matches: LiveMatch[]
+  onClose: () => void
+}) {
+  // Group by local calendar day.
+  const groups: { label: string; items: LiveMatch[] }[] = []
+  for (const m of matches) {
+    const d = new Date(m.kickoff)
+    const label = d.toLocaleDateString(undefined, {
+      weekday: 'short',
+      month: 'short',
+      day: 'numeric',
+    })
+    let g = groups.find((x) => x.label === label)
+    if (!g) {
+      g = { label, items: [] }
+      groups.push(g)
+    }
+    g.items.push(m)
+  }
+
+  return (
+    <div
+      className="overlay"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose()
+      }}
+    >
+      <div className="schedule-panel">
+        <div className="share-panel-top">
+          <h2>📅 Knockout schedule</h2>
+          <button className="close" onClick={onClose} type="button">
+            ✕
+          </button>
+        </div>
+
+        {groups.length === 0 && (
+          <p className="sched-empty">No matches in the current window.</p>
+        )}
+
+        {groups.map((g) => (
+          <div className="sched-day" key={g.label}>
+            <div className="sched-day-label">{g.label}</div>
+            {g.items.map((m) => (
+              <ScheduleRow key={m.id} m={m} />
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function ScheduleRow({ m }: { m: LiveMatch }) {
+  const time = new Date(m.kickoff).toLocaleTimeString(undefined, {
+    hour: 'numeric',
+    minute: '2-digit',
+  })
+  const live = m.state === 'in'
+  const done = m.state === 'post'
+
+  return (
+    <div className={`sched-row ${live ? 'live' : ''}`}>
+      <span className="sched-team">
+        <span className={`st-name ${m.winner === 'a' ? 'won' : ''}`}>
+          {flagFor(m.aCode)} {m.aName}
+        </span>
+        <span className={`st-name ${m.winner === 'b' ? 'won' : ''}`}>
+          {flagFor(m.bCode)} {m.bName}
+        </span>
+      </span>
+      <span className="sched-status">
+        {live && (
+          <>
+            <span className="live-dot" /> {m.aScore}–{m.bScore}
+            <em>{m.detail}</em>
+          </>
+        )}
+        {done && (
+          <>
+            <strong>
+              {m.aScore}–{m.bScore}
+            </strong>
+            <em>{m.detail}</em>
+          </>
+        )}
+        {!live && !done && <span className="sched-time">{time}</span>}
+      </span>
+    </div>
+  )
+}
 

@@ -1,1 +1,1 @@
-{"root":["./src/app.tsx","./src/bracket.ts","./src/main.tsx","./src/picks.ts","./src/share.ts","./src/vite-env.d.ts"],"version":"5.9.3"}
+{"root":["./src/app.tsx","./src/bracket.ts","./src/live.ts","./src/main.tsx","./src/picks.ts","./src/share.ts","./src/vite-env.d.ts"],"version":"5.9.3"}

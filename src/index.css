@@ -729,3 +729,157 @@ h1 {
   opacity: 0.5;
   text-decoration: line-through;
 }
+
+/* ---------- Live banner + schedule ---------- */
+.live-dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: #ff3b3b;
+  box-shadow: 0 0 0 0 rgba(255, 59, 59, 0.7);
+  animation: livepulse 1.3s infinite;
+  flex: 0 0 auto;
+}
+.live-dot.big {
+  width: 12px;
+  height: 12px;
+}
+@keyframes livepulse {
+  0% { box-shadow: 0 0 0 0 rgba(255, 59, 59, 0.6); }
+  70% { box-shadow: 0 0 0 8px rgba(255, 59, 59, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(255, 59, 59, 0); }
+}
+
+.sched-btn {
+  position: relative;
+  font-family: 'Fredoka', sans-serif;
+  font-weight: 700;
+  cursor: pointer;
+  background: #fffef6;
+  color: #1d6e2c;
+  border: 3px solid #fff;
+  border-radius: 999px;
+  padding: 7px 14px;
+  box-shadow: 0 4px 0 rgba(0, 60, 20, 0.4);
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  transition: transform 0.08s, box-shadow 0.08s;
+}
+.sched-btn.has-live {
+  border-color: #ff6b6b;
+}
+.sched-btn:active {
+  transform: translateY(3px);
+  box-shadow: 0 1px 0 rgba(0, 60, 20, 0.4);
+}
+
+.live-banner {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  border: none;
+  cursor: pointer;
+  text-align: left;
+  padding: 8px 18px;
+  color: #fff;
+  background: linear-gradient(90deg, #c81e1e, #e23b3b);
+  border-bottom: 3px solid #7a0d0d;
+  font-family: 'Fredoka', sans-serif;
+  overflow: hidden;
+}
+.live-label {
+  font-family: 'Luckiest Guy', cursive;
+  letter-spacing: 1px;
+}
+.live-games {
+  display: flex;
+  gap: 18px;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.live-game {
+  font-weight: 600;
+}
+.live-game em {
+  font-style: normal;
+  opacity: 0.85;
+  margin-left: 4px;
+}
+.live-more {
+  opacity: 0.85;
+}
+
+.schedule-panel {
+  background: #176026;
+  border: 4px solid var(--chalk);
+  border-radius: 18px;
+  width: min(560px, 100%);
+  max-height: 88vh;
+  overflow: auto;
+  padding: 18px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+}
+.sched-empty {
+  color: #eafff0;
+  text-align: center;
+}
+.sched-day {
+  margin-bottom: 14px;
+}
+.sched-day-label {
+  font-family: 'Luckiest Guy', cursive;
+  color: #ffd23f;
+  font-size: 14px;
+  margin: 6px 0 8px;
+}
+.sched-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: #fffef6;
+  border-radius: 10px;
+  padding: 8px 12px;
+  margin-bottom: 6px;
+  border: 2px solid transparent;
+}
+.sched-row.live {
+  border-color: #ff3b3b;
+  box-shadow: 0 0 0 2px rgba(255, 59, 59, 0.18);
+}
+.sched-team {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-weight: 600;
+  color: #143a1f;
+}
+.st-name.won {
+  color: #1d6e2c;
+  font-weight: 800;
+}
+.sched-status {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: #143a1f;
+  font-weight: 700;
+  white-space: nowrap;
+}
+.sched-status em {
+  font-style: normal;
+  color: #c81e1e;
+  font-size: 12px;
+}
+.sched-time {
+  color: #3b7a4d;
+  font-weight: 700;
+}
