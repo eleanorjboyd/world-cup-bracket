@@ -1,10 +1,4 @@
-import {
-  MATCHES,
-  MATCHES_BY_ID,
-  type Match,
-  type MatchResult,
-  type Slot,
-} from './bracket'
+import { MATCHES, type Match, type MatchResult, type Slot } from './bracket'
 
 // picks: matchId -> winning teamId
 export type Picks = Record<number, string>
@@ -73,8 +67,4 @@ export function champion(picks: Picks): string | undefined {
 
 export function isComplete(picks: Picks): boolean {
   return MATCHES.every((m) => picks[m.id] !== undefined)
-}
-
-export function matchById(id: number): Match {
-  return MATCHES_BY_ID[id]
 }

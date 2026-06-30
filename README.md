@@ -71,3 +71,6 @@ the app loads at runtime.
 - `src/App.tsx` — UI (landing screen, bracket, share modal, invite modal,
   schedule modal, live banner)
 - `src/index.css` — styling
+- `scripts/fetch-results.mjs` — fetches finished results from ESPN into
+  `public/results.json` (run by the scheduled workflow; `npm run update-results`)
+- `docs/submissions-plan.md` — draft plan for letting friends submit picks back
