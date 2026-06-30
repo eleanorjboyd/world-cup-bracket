@@ -787,18 +787,21 @@ function ScheduleModal({
   matches: LiveMatch[]
   onClose: () => void
 }) {
-  // Group by local calendar day.
-  const groups: { label: string; items: LiveMatch[] }[] = []
+  // Group by Pacific-time calendar day, labelled with the weekday.
+  const PT = 'America/Los_Angeles'
+  const groups: { key: string; label: string; items: LiveMatch[] }[] = []
   for (const m of matches) {
     const d = new Date(m.kickoff)
-    const label = d.toLocaleDateString(undefined, {
-      weekday: 'short',
+    const key = d.toLocaleDateString('en-CA', { timeZone: PT }) // YYYY-MM-DD
+    const label = d.toLocaleDateString('en-US', {
+      weekday: 'long',
       month: 'short',
       day: 'numeric',
+      timeZone: PT,
     })
-    let g = groups.find((x) => x.label === label)
+    let g = groups.find((x) => x.key === key)
     if (!g) {
-      g = { label, items: [] }
+      g = { key, label, items: [] }
       groups.push(g)
     }
     g.items.push(m)
@@ -824,7 +827,7 @@ function ScheduleModal({
         )}
 
         {groups.map((g) => (
-          <div className="sched-day" key={g.label}>
+          <div className="sched-day" key={g.key}>
             <div className="sched-day-label">{g.label}</div>
             {g.items.map((m) => (
               <ScheduleRow key={m.id} m={m} />
@@ -837,9 +840,11 @@ function ScheduleModal({
 }
 
 function ScheduleRow({ m }: { m: LiveMatch }) {
-  const time = new Date(m.kickoff).toLocaleTimeString(undefined, {
+  const time = new Date(m.kickoff).toLocaleTimeString('en-US', {
     hour: 'numeric',
     minute: '2-digit',
+    timeZone: 'America/Los_Angeles',
+    timeZoneName: 'short',
   })
   const live = m.state === 'in'
   const done = m.state === 'post'
